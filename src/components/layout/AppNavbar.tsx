@@ -15,63 +15,49 @@ const navItems = [
 
 export function AppNavbar() {
   const { theme, toggleTheme } = useTheme();
-  const { isRunning } = useScraperContext();
+  const { platforms, isAnyRunning } = useScraperContext();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+
+  const twitterRunning = platforms.twitter.isRunning;
+  const instagramRunning = platforms.instagram.isRunning;
 
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur-sm">
         <div className="flex items-center justify-between h-14 px-4 md:px-6">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden h-8 w-8"
-              onClick={() => setMobileOpen(!mobileOpen)}
-            >
+            <Button variant="ghost" size="icon" className="md:hidden h-8 w-8" onClick={() => setMobileOpen(!mobileOpen)}>
               <Menu className="h-4 w-4" />
             </Button>
-            <h2 className="text-sm font-semibold text-foreground">
-              Social Media Scraper System
-            </h2>
+            <h2 className="text-sm font-semibold text-foreground">Social Media Scraper System</h2>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border",
-                isRunning
-                  ? "border-success/30 bg-success/10 text-success"
-                  : "border-border bg-muted text-muted-foreground"
-              )}
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  isRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground"
-                )}
-              />
-              {isRunning ? "Running" : "Stopped"}
+          <div className="flex items-center gap-2">
+            {/* Twitter status */}
+            <div className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
+              twitterRunning ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted text-muted-foreground"
+            )}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", twitterRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
+              TW
+            </div>
+            {/* Instagram status */}
+            <div className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
+              instagramRunning ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted text-muted-foreground"
+            )}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", instagramRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
+              IG
             </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="h-8 w-8"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Mobile nav */}
       {mobileOpen && (
         <div className="md:hidden border-b border-border bg-card p-3 space-y-1">
           {navItems.map((item) => {
@@ -83,9 +69,7 @@ export function AppNavbar() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 )}
               >
                 <item.icon className="h-4 w-4" />
