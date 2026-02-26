@@ -1,7 +1,8 @@
-// Mock API service layer — replace with real backend calls later
+import type { Platform } from "@/context/ScraperContext";
 
 export interface Post {
   id: string;
+  platform: "twitter" | "instagram";
   username: string;
   caption: string;
   likes: number;
@@ -23,90 +24,125 @@ export interface DashboardStats {
 export interface ScraperStatus {
   isRunning: boolean;
   startedAt: string | null;
-  duration: number;
+  duration: { hours: number; minutes: number; seconds: number };
   postsScraped: number;
   postsPerMinute: number;
-  timeElapsed: number;
+  elapsedTime: number;
 }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const mockPosts: Post[] = Array.from({ length: 48 }, (_, i) => ({
-  id: `post-${i + 1}`,
-  username: ["@techguru", "@datascience", "@webdev", "@airesearch", "@cloudops", "@devops_ninja", "@ml_engineer", "@fullstack"][i % 8],
-  caption: [
-    "Exploring new frameworks for 2025 🚀",
-    "Machine learning pipelines are getting faster",
-    "Just deployed a new microservice architecture",
-    "The future of AI is here and it's incredible",
-    "Cloud-native development best practices",
-    "Kubernetes tips every developer should know",
-    "Neural networks explained in simple terms",
-    "Building scalable APIs with Spring Boot",
-  ][i % 8],
-  likes: Math.floor(Math.random() * 5000) + 100,
-  comments: Math.floor(Math.random() * 300) + 10,
-  link: i % 3 === 0 ? `https://example.com/post/${i + 1}` : null,
-  scrapedAt: new Date(Date.now() - i * 3600000).toISOString(),
-}));
+const twitterUsers = ["@elonmusk", "@techguru", "@datascience", "@airesearch"];
+const instagramUsers = ["@webdev", "@cloudops", "@devops_ninja", "@ml_engineer"];
+const twitterCaptions = [
+  "Breaking: New AI model released 🚀",
+  "Thread on machine learning pipelines",
+  "Hot take on the future of tech",
+  "Just shipped a new open-source tool",
+];
+const instagramCaptions = [
+  "Exploring new frameworks for 2025 🚀",
+  "Cloud-native development best practices",
+  "Kubernetes tips every developer should know",
+  "Building scalable APIs with Spring Boot",
+];
 
-export async function startScraper(): Promise<{ success: boolean }> {
+const mockPosts: Post[] = Array.from({ length: 48 }, (_, i) => {
+  const isTwitter = i % 2 === 0;
+  return {
+    id: `post-${i + 1}`,
+    platform: isTwitter ? "twitter" : "instagram",
+    username: isTwitter ? twitterUsers[i % 4] : instagramUsers[i % 4],
+    caption: isTwitter ? twitterCaptions[i % 4] : instagramCaptions[i % 4],
+    likes: Math.floor(Math.random() * 5000) + 100,
+    comments: Math.floor(Math.random() * 300) + 10,
+    link: i % 3 === 0 ? `https://example.com/post/${i + 1}` : null,
+    scrapedAt: new Date(Date.now() - i * 3600000).toISOString(),
+  };
+});
+
+export async function startScraper(platform: Platform, duration: { hours: number; minutes: number; seconds: number }, keywords: string[]): Promise<{ success: boolean }> {
   await delay(500);
   return { success: true };
 }
 
-export async function stopScraper(): Promise<{ success: boolean }> {
+export async function stopScraper(platform: Platform): Promise<{ success: boolean }> {
   await delay(500);
   return { success: true };
 }
 
-export async function getScraperStatus(): Promise<ScraperStatus> {
+export async function getScraperStatus(platform: Platform): Promise<ScraperStatus> {
   await delay(300);
   return {
     isRunning: false,
     startedAt: null,
-    duration: 30,
+    duration: { hours: 0, minutes: 30, seconds: 0 },
     postsScraped: 0,
     postsPerMinute: 0,
-    timeElapsed: 0,
+    elapsedTime: 0,
   };
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(platform?: "all" | Platform): Promise<DashboardStats> {
   await delay(400);
+  const filtered = !platform || platform === "all" ? mockPosts : mockPosts.filter((p) => p.platform === platform);
+  const totalPosts = filtered.length;
+  const uniqueUsers = new Set(filtered.map((p) => p.username)).size;
+  const totalLinks = filtered.filter((p) => p.link).length;
+  const averageLikes = totalPosts > 0 ? Math.round(filtered.reduce((s, p) => s + p.likes, 0) / totalPosts) : 0;
+
   return {
-    totalPosts: 1247,
-    uniqueUsers: 312,
-    totalLinks: 438,
-    averageLikes: 1823,
+    totalPosts,
+    uniqueUsers,
+    totalLinks,
+    averageLikes,
     postsOverTime: [
-      { date: "Mon", posts: 45 },
-      { date: "Tue", posts: 62 },
-      { date: "Wed", posts: 58 },
-      { date: "Thu", posts: 89 },
-      { date: "Fri", posts: 76 },
-      { date: "Sat", posts: 34 },
-      { date: "Sun", posts: 51 },
+      { date: "Mon", posts: Math.round(totalPosts * 0.12) },
+      { date: "Tue", posts: Math.round(totalPosts * 0.16) },
+      { date: "Wed", posts: Math.round(totalPosts * 0.14) },
+      { date: "Thu", posts: Math.round(totalPosts * 0.21) },
+      { date: "Fri", posts: Math.round(totalPosts * 0.18) },
+      { date: "Sat", posts: Math.round(totalPosts * 0.08) },
+      { date: "Sun", posts: Math.round(totalPosts * 0.11) },
     ],
     likesDistribution: [
-      { range: "0-500", count: 120 },
-      { range: "500-1k", count: 340 },
-      { range: "1k-2k", count: 280 },
-      { range: "2k-3k", count: 190 },
-      { range: "3k-5k", count: 95 },
-      { range: "5k+", count: 42 },
+      { range: "0-500", count: filtered.filter((p) => p.likes < 500).length },
+      { range: "500-1k", count: filtered.filter((p) => p.likes >= 500 && p.likes < 1000).length },
+      { range: "1k-2k", count: filtered.filter((p) => p.likes >= 1000 && p.likes < 2000).length },
+      { range: "2k-3k", count: filtered.filter((p) => p.likes >= 2000 && p.likes < 3000).length },
+      { range: "3k-5k", count: filtered.filter((p) => p.likes >= 3000 && p.likes < 5000).length },
+      { range: "5k+", count: filtered.filter((p) => p.likes >= 5000).length },
     ],
-    topUsers: [
-      { name: "@techguru", posts: 89 },
-      { name: "@datascience", posts: 76 },
-      { name: "@webdev", posts: 64 },
-      { name: "@airesearch", posts: 52 },
-      { name: "@cloudops", posts: 41 },
-    ],
+    topUsers: Object.entries(
+      filtered.reduce<Record<string, number>>((acc, p) => {
+        acc[p.username] = (acc[p.username] || 0) + 1;
+        return acc;
+      }, {})
+    )
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, posts]) => ({ name, posts })),
   };
 }
 
-export async function getPosts(): Promise<Post[]> {
+export interface PostFilters {
+  platform?: "all" | "twitter" | "instagram";
+  search?: string;
+  minLikes?: number;
+  hasLink?: boolean;
+}
+
+export async function getPosts(filters?: PostFilters): Promise<Post[]> {
   await delay(400);
-  return mockPosts;
+  let result = [...mockPosts];
+  if (filters) {
+    if (filters.platform && filters.platform !== "all") result = result.filter((p) => p.platform === filters.platform);
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      result = result.filter((p) => p.username.toLowerCase().includes(q));
+    }
+    if (filters.minLikes) result = result.filter((p) => p.likes >= filters.minLikes!);
+    if (filters.hasLink) result = result.filter((p) => p.link !== null);
+  }
+  return result;
 }

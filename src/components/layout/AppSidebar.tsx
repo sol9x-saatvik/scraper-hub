@@ -11,7 +11,7 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { isRunning } = useScraperContext();
+  const { isAnyRunning } = useScraperContext();
 
   return (
     <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar min-h-screen">
@@ -48,11 +48,11 @@ export function AppSidebar() {
           <span
             className={cn(
               "h-2 w-2 rounded-full",
-              isRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground"
+              isAnyRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground"
             )}
           />
           <span className="text-xs text-muted-foreground">
-            {isRunning ? "Scraper Running" : "Scraper Idle"}
+            {isAnyRunning ? "Scraper Running" : "Scraper Idle"}
           </span>
         </div>
       </div>
