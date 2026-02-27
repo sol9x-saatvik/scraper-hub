@@ -1,67 +1,169 @@
-import { useEffect, useState, useMemo } from "react";
-import { Search, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
-import { getPosts, type Post } from "@/services/api";
+import { useEffect, useState, useCallback } from "react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  type ViewType,
+  type AllPost,
+  type InstaExplorePost,
+  type InstaSearchPost,
+  type TwitterHomePost,
+  type TwitterSearchPost,
+  getAllPosts,
+  getInstaExplorePosts,
+  getInstaSearchPosts,
+  getTwitterHomePosts,
+  getTwitterSearchPosts,
+} from "@/services/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PAGE_SIZE = 10;
-type PlatformFilter = "all" | "twitter" | "instagram";
+
+type AnyPost = AllPost | InstaExplorePost | InstaSearchPost | TwitterHomePost | TwitterSearchPost;
+
+const VIEW_LABELS: Record<ViewType, string> = {
+  all: "All",
+  "instagram-explore": "Instagram Explore",
+  "instagram-search": "Instagram Search",
+  "twitter-home": "Twitter Home",
+  "twitter-search": "Twitter Search",
+};
+
+const COLUMNS: Record<ViewType, { key: string; label: string; align?: "right" }[]> = {
+  all: [
+    { key: "platform", label: "Platform" },
+    { key: "source", label: "Source" },
+    { key: "keyword", label: "Keyword" },
+    { key: "user", label: "User" },
+    { key: "content", label: "Content" },
+    { key: "likes", label: "Likes", align: "right" },
+    { key: "date", label: "Date" },
+    { key: "time", label: "Time" },
+  ],
+  "instagram-explore": [
+    { key: "username", label: "Username" },
+    { key: "caption", label: "Caption" },
+    { key: "likes", label: "Likes", align: "right" },
+    { key: "date", label: "Date" },
+    { key: "time", label: "Time" },
+  ],
+  "instagram-search": [
+    { key: "keyword", label: "Keyword" },
+    { key: "username", label: "Username" },
+    { key: "caption", label: "Caption" },
+    { key: "likes", label: "Likes", align: "right" },
+    { key: "date", label: "Date" },
+    { key: "time", label: "Time" },
+  ],
+  "twitter-home": [
+    { key: "name", label: "Name" },
+    { key: "handle", label: "Handle" },
+    { key: "tweet", label: "Tweet" },
+    { key: "likes", label: "Likes", align: "right" },
+    { key: "reposts", label: "Reposts", align: "right" },
+    { key: "replies", label: "Replies", align: "right" },
+    { key: "views", label: "Views", align: "right" },
+    { key: "date", label: "Date" },
+    { key: "time", label: "Time" },
+  ],
+  "twitter-search": [
+    { key: "keyword", label: "Keyword" },
+    { key: "name", label: "Name" },
+    { key: "handle", label: "Handle" },
+    { key: "tweet", label: "Tweet" },
+    { key: "likes", label: "Likes", align: "right" },
+    { key: "reposts", label: "Reposts", align: "right" },
+    { key: "replies", label: "Replies", align: "right" },
+    { key: "views", label: "Views", align: "right" },
+    { key: "date", label: "Date" },
+    { key: "time", label: "Time" },
+  ],
+};
 
 export default function Posts() {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [viewType, setViewType] = useState<ViewType>("all");
+  const [posts, setPosts] = useState<AnyPost[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [minLikes, setMinLikes] = useState("");
-  const [hasLink, setHasLink] = useState(false);
-  const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [page, setPage] = useState(1);
 
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const params = {
+      search: search || undefined,
+      minLikes: minLikes ? parseInt(minLikes, 10) : undefined,
+    };
+    try {
+      let data: AnyPost[];
+      switch (viewType) {
+        case "all":
+          data = await getAllPosts(params);
+          break;
+        case "instagram-explore":
+          data = await getInstaExplorePosts(params);
+          break;
+        case "instagram-search":
+          data = await getInstaSearchPosts(params);
+          break;
+        case "twitter-home":
+          data = await getTwitterHomePosts(params);
+          break;
+        case "twitter-search":
+          data = await getTwitterSearchPosts(params);
+          break;
+        default:
+          data = [];
+      }
+      setPosts(data);
+    } catch (err) {
+      setError("Failed to fetch posts. Make sure the backend is running.");
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [viewType, search, minLikes]);
+
   useEffect(() => {
-    getPosts().then(setPosts);
-  }, []);
+    fetchPosts();
+  }, [fetchPosts]);
 
-  const filtered = useMemo(() => {
-    let result = posts;
-    if (platform !== "all") result = result.filter((p) => p.platform === platform);
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter((p) => p.username.toLowerCase().includes(q));
-    }
-    if (minLikes) {
-      const min = parseInt(minLikes, 10);
-      if (!isNaN(min)) result = result.filter((p) => p.likes >= min);
-    }
-    if (hasLink) result = result.filter((p) => p.link !== null);
-    return result;
-  }, [posts, search, minLikes, hasLink, platform]);
+  useEffect(() => setPage(1), [viewType, search, minLikes]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(posts.length / PAGE_SIZE);
+  const paginated = posts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const columns = COLUMNS[viewType];
 
-  useEffect(() => setPage(1), [search, minLikes, hasLink, platform]);
+  const getCellValue = (post: AnyPost, key: string): string | number => {
+    const val = (post as unknown as Record<string, unknown>)[key];
+    if (val === null || val === undefined) return "—";
+    if (typeof val === "number") return val;
+    return String(val);
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">Posts Viewer</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Browse and filter scraped posts ({filtered.length} results)
+          Browse scraped posts ({posts.length} results)
         </p>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end">
-        <div className="w-[160px]">
-          <label className="text-xs text-muted-foreground mb-1.5 block">Platform</label>
-          <Select value={platform} onValueChange={(v) => setPlatform(v as PlatformFilter)}>
+        <div className="w-[200px]">
+          <label className="text-xs text-muted-foreground mb-1.5 block">View Type</label>
+          <Select value={viewType} onValueChange={(v) => setViewType(v as ViewType)}>
             <SelectTrigger className="bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Platforms</SelectItem>
-              <SelectItem value="twitter">Twitter</SelectItem>
-              <SelectItem value="instagram">Instagram</SelectItem>
+              {Object.entries(VIEW_LABELS).map(([val, label]) => (
+                <SelectItem key={val} value={val}>{label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -69,18 +171,21 @@ export default function Posts() {
           <label className="text-xs text-muted-foreground mb-1.5 block">Search by username</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="@username..." className="pl-9 bg-background" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="pl-9 bg-background" />
           </div>
         </div>
         <div className="w-[140px]">
           <label className="text-xs text-muted-foreground mb-1.5 block">Min. Likes</label>
           <Input type="number" value={minLikes} onChange={(e) => setMinLikes(e.target.value)} placeholder="0" className="bg-background" />
         </div>
-        <div className="flex items-center gap-2 pb-0.5">
-          <Switch checked={hasLink} onCheckedChange={setHasLink} />
-          <label className="text-xs text-muted-foreground">Has link</label>
-        </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -88,43 +193,59 @@ export default function Posts() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Platform</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Username</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Caption</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">Likes</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">Comments</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Link</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Scraped At</th>
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    className={`${col.align === "right" ? "text-right" : "text-left"} font-medium text-muted-foreground px-5 py-3`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {paginated.map((post) => (
-                <tr key={post.id} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
-                  <td className="px-5 py-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${post.platform === "twitter" ? "bg-primary/15 text-primary" : "bg-accent text-accent-foreground"}`}>
-                      {post.platform === "twitter" ? "Twitter" : "Instagram"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 font-mono text-xs text-primary">{post.username}</td>
-                  <td className="px-5 py-3 text-card-foreground max-w-[250px] truncate">{post.caption}</td>
-                  <td className="px-5 py-3 text-right text-card-foreground">{post.likes.toLocaleString()}</td>
-                  <td className="px-5 py-3 text-right text-card-foreground">{post.comments}</td>
-                  <td className="px-5 py-3">
-                    {post.link ? (
-                      <a href={post.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary text-xs hover:underline">
-                        <ExternalLink className="h-3 w-3" /> View
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground text-xs font-mono">{new Date(post.scrapedAt).toLocaleString()}</td>
-                </tr>
-              ))}
-              {paginated.length === 0 && (
+              {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground text-sm">No posts found matching your filters.</td>
+                  <td colSpan={columns.length} className="px-5 py-12 text-center text-muted-foreground text-sm">Loading...</td>
                 </tr>
+              ) : paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="px-5 py-12 text-center text-muted-foreground text-sm">
+                    {error ? "No data available." : "No posts found."}
+                  </td>
+                </tr>
+              ) : (
+                paginated.map((post, idx) => (
+                  <tr key={idx} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
+                    {columns.map((col) => {
+                      const val = getCellValue(post, col.key);
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-5 py-3 ${col.align === "right" ? "text-right" : ""} ${
+                            col.key === "content" || col.key === "caption" || col.key === "tweet"
+                              ? "max-w-[250px] truncate text-card-foreground"
+                              : col.key === "username" || col.key === "handle" || col.key === "user"
+                              ? "font-mono text-xs text-primary"
+                              : "text-card-foreground"
+                          }`}
+                        >
+                          {col.key === "platform" ? (
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                              val === "Instagram" ? "bg-accent text-accent-foreground" : "bg-primary/15 text-primary"
+                            }`}>
+                              {val}
+                            </span>
+                          ) : typeof val === "number" ? (
+                            val.toLocaleString()
+                          ) : (
+                            val
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

@@ -5,7 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { getDashboardStats, getPosts, type DashboardStats, type Post } from "@/services/api";
+import { getDashboardStats, type DashboardStats } from "@/services/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CHART_COLORS = [
@@ -20,13 +20,27 @@ type PlatformFilter = "all" | "twitter" | "instagram";
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentPosts, setRecentPosts] = useState<Post[]>([]);
   const [platform, setPlatform] = useState<PlatformFilter>("all");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getDashboardStats(platform).then(setStats);
-    getPosts({ platform }).then((posts) => setRecentPosts(posts.slice(0, 8)));
+    setError(null);
+    getDashboardStats(platform)
+      .then(setStats)
+      .catch(() => {
+        setError("Failed to load dashboard stats. Make sure the backend is running.");
+        setStats(null);
+      });
   }, [platform]);
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
+      </div>
+    );
+  }
 
   if (!stats) {
     return (
@@ -56,10 +70,10 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Posts" value={stats.totalPosts} icon={FileText} trend="+12% from last week" />
-        <StatsCard title="Unique Users" value={stats.uniqueUsers} icon={Users} trend="+5% from last week" />
-        <StatsCard title="Total Links" value={stats.totalLinks} icon={Link2} trend="+8% from last week" />
-        <StatsCard title="Average Likes" value={stats.averageLikes} icon={Heart} trend="+3% from last week" />
+        <StatsCard title="Total Posts" value={stats.totalPosts} icon={FileText} />
+        <StatsCard title="Unique Users" value={stats.uniqueUsers} icon={Users} />
+        <StatsCard title="Total Links" value={stats.totalLinks} icon={Link2} />
+        <StatsCard title="Average Likes" value={stats.averageLikes} icon={Heart} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -118,47 +132,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* Recent Posts Table */}
-      <div className="rounded-lg border border-border bg-card">
-        <div className="p-5 border-b border-border">
-          <h3 className="text-sm font-medium text-card-foreground">Recent Posts</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Platform</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Username</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Caption</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">Likes</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">Comments</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentPosts.map((post) => (
-                <tr key={post.id} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
-                  <td className="px-5 py-3">
-                    <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", post.platform === "twitter" ? "bg-primary/15 text-primary" : "bg-accent text-accent-foreground")}>
-                      {post.platform === "twitter" ? "Twitter" : "Instagram"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 font-mono text-xs text-primary">{post.username}</td>
-                  <td className="px-5 py-3 text-card-foreground max-w-[250px] truncate">{post.caption}</td>
-                  <td className="px-5 py-3 text-right text-card-foreground">{post.likes.toLocaleString()}</td>
-                  <td className="px-5 py-3 text-right text-card-foreground">{post.comments}</td>
-                  <td className="px-5 py-3 text-muted-foreground text-xs">{new Date(post.scrapedAt).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
 }
