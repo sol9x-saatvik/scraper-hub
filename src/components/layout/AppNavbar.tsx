@@ -15,12 +15,9 @@ const navItems = [
 
 export function AppNavbar() {
   const { theme, toggleTheme } = useTheme();
-  const { platforms, isAnyRunning } = useScraperContext();
+  const { state } = useScraperContext();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-
-  const twitterRunning = platforms.twitter.isRunning;
-  const instagramRunning = platforms.instagram.isRunning;
 
   return (
     <>
@@ -34,21 +31,12 @@ export function AppNavbar() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Twitter status */}
             <div className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
-              twitterRunning ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted text-muted-foreground"
+              state.isRunning ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted text-muted-foreground"
             )}>
-              <span className={cn("h-1.5 w-1.5 rounded-full", twitterRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
-              TW
-            </div>
-            {/* Instagram status */}
-            <div className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
-              instagramRunning ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted text-muted-foreground"
-            )}>
-              <span className={cn("h-1.5 w-1.5 rounded-full", instagramRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
-              IG
+              <span className={cn("h-1.5 w-1.5 rounded-full", state.isRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
+              {state.isRunning ? "Running" : "Idle"}
             </div>
 
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
