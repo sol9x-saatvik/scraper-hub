@@ -43,7 +43,7 @@ interface ScraperContextType {
 
 const ScraperContext = createContext<ScraperContextType | null>(null);
 
-const API_BASE = "/api";
+const API_BASE = "http://localhost:8081/api"; // IMPORTANT
 
 export function ScraperProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ScraperState>({
@@ -75,7 +75,9 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
   const addKeyword = useCallback((k: Keyword) => {
     setState((prev) => {
-      const exists = prev.keywords.some((kw) => kw.platform === k.platform && kw.value === k.value);
+      const exists = prev.keywords.some(
+        (kw) => kw.platform === k.platform && kw.value === k.value
+      );
       if (exists) return prev;
       return { ...prev, keywords: [...prev.keywords, k] };
     });
@@ -84,39 +86,63 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
   const removeKeyword = useCallback((platform: Platform, value: string) => {
     setState((prev) => ({
       ...prev,
-      keywords: prev.keywords.filter((k) => !(k.platform === platform && k.value === value)),
+      keywords: prev.keywords.filter(
+        (k) => !(k.platform === platform && k.value === value)
+      ),
     }));
   }, []);
 
   const startScraper = useCallback(async () => {
     const { duration, runInstaExplore, runTwitterHome, keywords } = state;
-    const totalSeconds = duration.hours * 3600 + duration.minutes * 60 + duration.seconds;
+
+    const totalSeconds =
+      duration.hours * 3600 +
+      duration.minutes * 60 +
+      duration.seconds;
+
+    // 🔥 Split keywords by platform
+    const instaKeywords = keywords
+      .filter((k) => k.platform === "INSTAGRAM")
+      .map((k) => k.value);
+
+    const twitterKeywords = keywords
+      .filter((k) => k.platform === "TWITTER")
+      .map((k) => k.value);
+
+    const payload = {
+      instaExplore: runInstaExplore,
+      twitterHome: runTwitterHome,
+      instaKeywords,
+      twitterKeywords,
+      duration: totalSeconds,
+    };
 
     try {
       const res = await fetch(`${API_BASE}/scraper/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          duration: totalSeconds,
-          runInstaExplore,
-          runTwitterHome,
-          keywords,
-        }),
+        body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        const activeTasks = (runInstaExplore ? 1 : 0) + (runTwitterHome ? 1 : 0);
-        setState((prev) => ({
-          ...prev,
-          isRunning: true,
-          sessionStats: {
-            startedAt: new Date().toISOString(),
-            postsScraped: 0,
-            postsPerMinute: 0,
-            elapsedTime: 0,
-            activeTasks,
-          },
-        }));
-      }
+
+      if (!res.ok) throw new Error("Failed to start scraper");
+
+      const activeTasks =
+        (runInstaExplore ? 1 : 0) +
+        (runTwitterHome ? 1 : 0) +
+        instaKeywords.length +
+        twitterKeywords.length;
+
+      setState((prev) => ({
+        ...prev,
+        isRunning: true,
+        sessionStats: {
+          startedAt: new Date().toISOString(),
+          postsScraped: 0,
+          postsPerMinute: 0,
+          elapsedTime: 0,
+          activeTasks,
+        },
+      }));
     } catch (err) {
       console.error("Failed to start scraper:", err);
     }
@@ -124,13 +150,16 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
   const stopScraper = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/scraper/stop`, { method: "POST" });
-      if (res.ok) {
-        setState((prev) => ({
-          ...prev,
-          isRunning: false,
-        }));
-      }
+      const res = await fetch(`${API_BASE}/scraper/stop`, {
+        method: "POST",
+      });
+
+      if (!res.ok) throw new Error("Failed to stop scraper");
+
+      setState((prev) => ({
+        ...prev,
+        isRunning: false,
+      }));
     } catch (err) {
       console.error("Failed to stop scraper:", err);
     }
@@ -138,7 +167,16 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
   return (
     <ScraperContext.Provider
-      value={{ state, setDuration, setRunInstaExplore, setRunTwitterHome, addKeyword, removeKeyword, startScraper, stopScraper }}
+      value={{
+        state,
+        setDuration,
+        setRunInstaExplore,
+        setRunTwitterHome,
+        addKeyword,
+        removeKeyword,
+        startScraper,
+        stopScraper,
+      }}
     >
       {children}
     </ScraperContext.Provider>
@@ -147,6 +185,7 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
 export function useScraperContext() {
   const ctx = useContext(ScraperContext);
-  if (!ctx) throw new Error("useScraperContext must be used within ScraperProvider");
+  if (!ctx)
+    throw new Error("useScraperContext must be used within ScraperProvider");
   return ctx;
 }

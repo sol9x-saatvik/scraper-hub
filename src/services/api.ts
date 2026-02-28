@@ -1,5 +1,4 @@
-const API_BASE = "/api";
-
+const API_BASE = "http://localhost:8081/api";
 // ── Post types per collection ──
 
 export interface InstaExplorePost {
@@ -64,10 +63,11 @@ export interface DashboardStats {
   uniqueUsers: number;
   totalLinks: number;
   averageLikes: number;
-  postsOverTime: { date: string; posts: number }[];
-  likesDistribution: { range: string; count: number }[];
-  topUsers: { name: string; posts: number }[];
+  postsOverTime: any[];
+  likesDistribution: any[];
+  topUsers: any[];
 }
+
 
 // ── Fetch helpers ──
 

@@ -16,8 +16,8 @@ export function AppSidebar() {
   return (
     <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar min-h-screen">
       <div className="p-5 border-b border-border">
-        <h1 className="text-base font-semibold text-foreground tracking-tight">SM Scraper</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Management System</p>
+        <h1 className="text-base font-semibold text-foreground tracking-tight">SOL9X Monitor</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">Social Media</p>
       </div>
 
       <nav className="flex-1 p-3 space-y-1">

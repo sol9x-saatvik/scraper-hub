@@ -50,6 +50,14 @@ export default function ScraperControl() {
     return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
   };
 
+  // Check if there is at least one task selected
+  const hasKeywordTasks = keywords.length > 0;
+
+  const hasTasks =
+    runInstaExplore ||
+    runTwitterHome ||
+    hasKeywordTasks;
+
   return (
     <div className="space-y-6">
       <div>
@@ -138,7 +146,7 @@ export default function ScraperControl() {
           <div className="flex gap-3">
             <Button
               onClick={startScraper}
-              disabled={isRunning || (!runInstaExplore && !runTwitterHome)}
+              disabled={isRunning || !hasTasks}
               className="bg-success hover:bg-success/90 text-success-foreground"
             >
               <Play className="h-4 w-4 mr-2" /> Start Scraper
