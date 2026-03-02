@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Square, Clock, Zap, BarChart3, X, Plus } from "lucide-react";
+import { Play, Square, Clock, Zap, BarChart3, X, Plus, AlertCircle } from "lucide-react";
 import { useScraperContext, type Platform } from "@/context/ScraperContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const IG_HASHTAG_REGEX = /^[A-Za-z0-9_]+$/;
+const TW_KEYWORD_REGEX = /^[A-Za-z0-9_]+$/;
+const IG_PROFILE_REGEX = /^(?!.*\.$)[A-Za-z0-9._]+$/;
+const TW_PROFILE_REGEX = /^[A-Za-z0-9_]+$/;
 
 export default function ScraperControl() {
   const {
@@ -16,19 +21,33 @@ export default function ScraperControl() {
     setRunTwitterHome,
     addKeyword,
     removeKeyword,
+    addInstaProfile,
+    removeInstaProfile,
+    addTwitterProfile,
+    removeTwitterProfile,
     startScraper,
     stopScraper,
   } = useScraperContext();
 
-  const { isRunning, duration, runInstaExplore, runTwitterHome, keywords, sessionStats } = state;
+  const { isRunning, duration, runInstaExplore, runTwitterHome, keywords, instaProfiles, twitterProfiles, sessionStats } = state;
 
   const [newKeyword, setNewKeyword] = useState("");
   const [keywordPlatform, setKeywordPlatform] = useState<Platform>("INSTAGRAM");
+  const [newInstaProfile, setNewInstaProfile] = useState("");
+  const [newTwitterProfile, setNewTwitterProfile] = useState("");
+
+  const keywordValid = newKeyword.trim().length > 0 && (
+    keywordPlatform === "INSTAGRAM"
+      ? IG_HASHTAG_REGEX.test(newKeyword.trim())
+      : TW_KEYWORD_REGEX.test(newKeyword.trim())
+  );
+
+  const instaProfileValid = newInstaProfile.trim().length > 0 && IG_PROFILE_REGEX.test(newInstaProfile.trim());
+  const twitterProfileValid = newTwitterProfile.trim().length > 0 && TW_PROFILE_REGEX.test(newTwitterProfile.trim());
 
   const handleAddKeyword = () => {
-    const k = newKeyword.trim();
-    if (k) {
-      addKeyword({ platform: keywordPlatform, value: k });
+    if (keywordValid) {
+      addKeyword({ platform: keywordPlatform, value: newKeyword.trim() });
       setNewKeyword("");
     }
   };
@@ -50,13 +69,7 @@ export default function ScraperControl() {
     return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
   };
 
-  // Check if there is at least one task selected
-  const hasKeywordTasks = keywords.length > 0;
-
-  const hasTasks =
-    runInstaExplore ||
-    runTwitterHome ||
-    hasKeywordTasks;
+  const hasTasks = runInstaExplore || runTwitterHome || keywords.length > 0 || instaProfiles.length > 0 || twitterProfiles.length > 0;
 
   return (
     <div className="space-y-6">
@@ -124,19 +137,11 @@ export default function ScraperControl() {
             <label className="text-xs text-muted-foreground mb-2 block">Task Toggles</label>
             <div className="space-y-2.5">
               <label className="flex items-center gap-2.5 cursor-pointer">
-                <Checkbox
-                  checked={runInstaExplore}
-                  onCheckedChange={(v) => setRunInstaExplore(!!v)}
-                  disabled={isRunning}
-                />
+                <Checkbox checked={runInstaExplore} onCheckedChange={(v) => setRunInstaExplore(!!v)} disabled={isRunning} />
                 <span className="text-sm text-card-foreground">Run Instagram Explore</span>
               </label>
               <label className="flex items-center gap-2.5 cursor-pointer">
-                <Checkbox
-                  checked={runTwitterHome}
-                  onCheckedChange={(v) => setRunTwitterHome(!!v)}
-                  disabled={isRunning}
-                />
+                <Checkbox checked={runTwitterHome} onCheckedChange={(v) => setRunTwitterHome(!!v)} disabled={isRunning} />
                 <span className="text-sm text-card-foreground">Run Twitter Home</span>
               </label>
             </div>
@@ -144,11 +149,7 @@ export default function ScraperControl() {
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <Button
-              onClick={startScraper}
-              disabled={isRunning || !hasTasks}
-              className="bg-success hover:bg-success/90 text-success-foreground"
-            >
+            <Button onClick={startScraper} disabled={isRunning || !hasTasks} className="bg-success hover:bg-success/90 text-success-foreground">
               <Play className="h-4 w-4 mr-2" /> Start Scraper
             </Button>
             <Button onClick={stopScraper} disabled={!isRunning} variant="destructive">
@@ -166,9 +167,7 @@ export default function ScraperControl() {
           <div className="w-[150px]">
             <label className="text-xs text-muted-foreground mb-1.5 block">Platform</label>
             <Select value={keywordPlatform} onValueChange={(v) => setKeywordPlatform(v as Platform)}>
-              <SelectTrigger className="bg-background">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="INSTAGRAM">Instagram</SelectItem>
                 <SelectItem value="TWITTER">Twitter</SelectItem>
@@ -176,17 +175,26 @@ export default function ScraperControl() {
             </Select>
           </div>
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-muted-foreground mb-1.5 block">Keyword</label>
+            <label className="text-xs text-muted-foreground mb-1.5 block">
+              Keyword {keywordPlatform === "INSTAGRAM" ? "(letters, numbers, _ only)" : "(letters, numbers, _ only)"}
+            </label>
             <div className="flex gap-2">
-              <Input
-                value={newKeyword}
-                onChange={(e) => setNewKeyword(e.target.value)}
-                placeholder="Enter keyword..."
-                onKeyDown={(e) => e.key === "Enter" && handleAddKeyword()}
-                disabled={isRunning}
-                className="bg-background"
-              />
-              <Button variant="outline" size="icon" onClick={handleAddKeyword} disabled={isRunning || !newKeyword.trim()}>
+              <div className="flex-1 relative">
+                <Input
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  placeholder="Enter keyword..."
+                  onKeyDown={(e) => e.key === "Enter" && handleAddKeyword()}
+                  disabled={isRunning}
+                  className={cn("bg-background", newKeyword.trim() && !keywordValid && "border-destructive")}
+                />
+                {newKeyword.trim() && !keywordValid && (
+                  <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> Invalid format
+                  </p>
+                )}
+              </div>
+              <Button variant="outline" size="icon" onClick={handleAddKeyword} disabled={isRunning || !keywordValid}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -195,14 +203,8 @@ export default function ScraperControl() {
 
         <div className="flex flex-wrap gap-2">
           {keywords.map((k, i) => (
-            <span
-              key={`${k.platform}-${k.value}-${i}`}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium"
-            >
-              <span className={cn(
-                "text-[10px] font-bold px-1 py-0.5 rounded",
-                k.platform === "INSTAGRAM" ? "bg-accent text-accent-foreground" : "bg-primary/15 text-primary"
-              )}>
+            <span key={`${k.platform}-${k.value}-${i}`} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
+              <span className={cn("text-[10px] font-bold px-1 py-0.5 rounded", k.platform === "INSTAGRAM" ? "bg-accent text-accent-foreground" : "bg-primary/15 text-primary")}>
                 {k.platform === "INSTAGRAM" ? "IG" : "TW"}
               </span>
               {k.value}
@@ -214,6 +216,95 @@ export default function ScraperControl() {
             </span>
           ))}
           {keywords.length === 0 && <span className="text-xs text-muted-foreground">No keywords added</span>}
+        </div>
+      </div>
+
+      {/* Profile Scraping */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Instagram Profile */}
+        <div className="rounded-lg border border-border bg-card p-5">
+          <h3 className="text-sm font-medium text-card-foreground mb-4">Instagram Profile Scraping</h3>
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1 relative">
+              <Input
+                value={newInstaProfile}
+                onChange={(e) => setNewInstaProfile(e.target.value)}
+                placeholder="Username (e.g. john_doe)"
+                onKeyDown={(e) => e.key === "Enter" && instaProfileValid && !isRunning && (addInstaProfile(newInstaProfile.trim()), setNewInstaProfile(""))}
+                disabled={isRunning}
+                className={cn("bg-background", newInstaProfile.trim() && !instaProfileValid && "border-destructive")}
+              />
+              {newInstaProfile.trim() && !instaProfileValid && (
+                <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Letters, numbers, _ and . only. Cannot end with .
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline" size="icon"
+              disabled={isRunning || !instaProfileValid}
+              onClick={() => { addInstaProfile(newInstaProfile.trim()); setNewInstaProfile(""); }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {instaProfiles.map((p, i) => (
+              <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
+                <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-accent text-accent-foreground">IG</span>
+                @{p}
+                {!isRunning && (
+                  <button onClick={() => removeInstaProfile(p)} className="hover:text-destructive transition-colors ml-1">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+            {instaProfiles.length === 0 && <span className="text-xs text-muted-foreground">No profiles added</span>}
+          </div>
+        </div>
+
+        {/* Twitter Profile */}
+        <div className="rounded-lg border border-border bg-card p-5">
+          <h3 className="text-sm font-medium text-card-foreground mb-4">Twitter Profile Scraping</h3>
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1 relative">
+              <Input
+                value={newTwitterProfile}
+                onChange={(e) => setNewTwitterProfile(e.target.value)}
+                placeholder="Username (e.g. john_doe)"
+                onKeyDown={(e) => e.key === "Enter" && twitterProfileValid && !isRunning && (addTwitterProfile(newTwitterProfile.trim()), setNewTwitterProfile(""))}
+                disabled={isRunning}
+                className={cn("bg-background", newTwitterProfile.trim() && !twitterProfileValid && "border-destructive")}
+              />
+              {newTwitterProfile.trim() && !twitterProfileValid && (
+                <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Letters, numbers, _ only. No dots or spaces.
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline" size="icon"
+              disabled={isRunning || !twitterProfileValid}
+              onClick={() => { addTwitterProfile(newTwitterProfile.trim()); setNewTwitterProfile(""); }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {twitterProfiles.map((p, i) => (
+              <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
+                <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-primary/15 text-primary">TW</span>
+                @{p}
+                {!isRunning && (
+                  <button onClick={() => removeTwitterProfile(p)} className="hover:text-destructive transition-colors ml-1">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+            {twitterProfiles.length === 0 && <span className="text-xs text-muted-foreground">No profiles added</span>}
+          </div>
         </div>
       </div>
 
