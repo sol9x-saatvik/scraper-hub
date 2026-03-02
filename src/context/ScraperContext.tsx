@@ -27,6 +27,8 @@ interface ScraperState {
   runInstaExplore: boolean;
   runTwitterHome: boolean;
   keywords: Keyword[];
+  instaProfiles: string[];
+  twitterProfiles: string[];
   sessionStats: SessionStats;
 }
 
@@ -37,13 +39,17 @@ interface ScraperContextType {
   setRunTwitterHome: (v: boolean) => void;
   addKeyword: (k: Keyword) => void;
   removeKeyword: (platform: Platform, value: string) => void;
+  addInstaProfile: (username: string) => void;
+  removeInstaProfile: (username: string) => void;
+  addTwitterProfile: (username: string) => void;
+  removeTwitterProfile: (username: string) => void;
   startScraper: () => Promise<void>;
   stopScraper: () => Promise<void>;
 }
 
 const ScraperContext = createContext<ScraperContextType | null>(null);
 
-const API_BASE = "http://localhost:8081/api"; // IMPORTANT
+const API_BASE = "http://localhost:8081/api";
 
 export function ScraperProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ScraperState>({
@@ -52,6 +58,8 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
     runInstaExplore: false,
     runTwitterHome: false,
     keywords: [],
+    instaProfiles: [],
+    twitterProfiles: [],
     sessionStats: {
       startedAt: null,
       postsScraped: 0,
@@ -75,10 +83,7 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
   const addKeyword = useCallback((k: Keyword) => {
     setState((prev) => {
-      const exists = prev.keywords.some(
-        (kw) => kw.platform === k.platform && kw.value === k.value
-      );
-      if (exists) return prev;
+      if (prev.keywords.some((kw) => kw.platform === k.platform && kw.value === k.value)) return prev;
       return { ...prev, keywords: [...prev.keywords, k] };
     });
   }, []);
@@ -86,34 +91,47 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
   const removeKeyword = useCallback((platform: Platform, value: string) => {
     setState((prev) => ({
       ...prev,
-      keywords: prev.keywords.filter(
-        (k) => !(k.platform === platform && k.value === value)
-      ),
+      keywords: prev.keywords.filter((k) => !(k.platform === platform && k.value === value)),
     }));
   }, []);
 
+  const addInstaProfile = useCallback((username: string) => {
+    setState((prev) => {
+      if (prev.instaProfiles.includes(username)) return prev;
+      return { ...prev, instaProfiles: [...prev.instaProfiles, username] };
+    });
+  }, []);
+
+  const removeInstaProfile = useCallback((username: string) => {
+    setState((prev) => ({ ...prev, instaProfiles: prev.instaProfiles.filter((p) => p !== username) }));
+  }, []);
+
+  const addTwitterProfile = useCallback((username: string) => {
+    setState((prev) => {
+      if (prev.twitterProfiles.includes(username)) return prev;
+      return { ...prev, twitterProfiles: [...prev.twitterProfiles, username] };
+    });
+  }, []);
+
+  const removeTwitterProfile = useCallback((username: string) => {
+    setState((prev) => ({ ...prev, twitterProfiles: prev.twitterProfiles.filter((p) => p !== username) }));
+  }, []);
+
   const startScraper = useCallback(async () => {
-    const { duration, runInstaExplore, runTwitterHome, keywords } = state;
+    const { duration, runInstaExplore, runTwitterHome, keywords, instaProfiles, twitterProfiles } = state;
 
-    const totalSeconds =
-      duration.hours * 3600 +
-      duration.minutes * 60 +
-      duration.seconds;
+    const totalSeconds = duration.hours * 3600 + duration.minutes * 60 + duration.seconds;
 
-    // 🔥 Split keywords by platform
-    const instaKeywords = keywords
-      .filter((k) => k.platform === "INSTAGRAM")
-      .map((k) => k.value);
-
-    const twitterKeywords = keywords
-      .filter((k) => k.platform === "TWITTER")
-      .map((k) => k.value);
+    const instaKeywords = keywords.filter((k) => k.platform === "INSTAGRAM").map((k) => k.value);
+    const twitterKeywords = keywords.filter((k) => k.platform === "TWITTER").map((k) => k.value);
 
     const payload = {
       instaExplore: runInstaExplore,
       twitterHome: runTwitterHome,
       instaKeywords,
       twitterKeywords,
+      instaProfiles,
+      twitterProfiles,
       duration: totalSeconds,
     };
 
@@ -130,7 +148,9 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
         (runInstaExplore ? 1 : 0) +
         (runTwitterHome ? 1 : 0) +
         instaKeywords.length +
-        twitterKeywords.length;
+        twitterKeywords.length +
+        instaProfiles.length +
+        twitterProfiles.length;
 
       setState((prev) => ({
         ...prev,
@@ -150,16 +170,9 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
   const stopScraper = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/scraper/stop`, {
-        method: "POST",
-      });
-
+      const res = await fetch(`${API_BASE}/scraper/stop`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to stop scraper");
-
-      setState((prev) => ({
-        ...prev,
-        isRunning: false,
-      }));
+      setState((prev) => ({ ...prev, isRunning: false }));
     } catch (err) {
       console.error("Failed to stop scraper:", err);
     }
@@ -174,6 +187,10 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
         setRunTwitterHome,
         addKeyword,
         removeKeyword,
+        addInstaProfile,
+        removeInstaProfile,
+        addTwitterProfile,
+        removeTwitterProfile,
         startScraper,
         stopScraper,
       }}
@@ -185,7 +202,6 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
 export function useScraperContext() {
   const ctx = useContext(ScraperContext);
-  if (!ctx)
-    throw new Error("useScraperContext must be used within ScraperProvider");
+  if (!ctx) throw new Error("useScraperContext must be used within ScraperProvider");
   return ctx;
 }
