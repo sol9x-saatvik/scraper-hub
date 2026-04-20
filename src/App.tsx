@@ -8,6 +8,14 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ScraperControl from "./pages/ScraperControl";
 import Posts from "./pages/Posts";
+import UserMonitoring from "./pages/UserMonitoring";
+import Alerts from "./pages/Alerts";
+import CaseManagement from "./pages/CaseManagement";
+import AnalyticsReport from "./pages/AnalyticsReport";
+import Team from "./pages/Team";
+import AppSettings from "./pages/AppSettings";
+import AuditLog from "./pages/AuditLog";
+import MapView from "./pages/MapView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +32,14 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/scraper" element={<ScraperControl />} />
               <Route path="/posts" element={<Posts />} />
+              <Route path="/monitoring" element={<UserMonitoring />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/cases" element={<CaseManagement />} />
+              <Route path="/analytics" element={<AnalyticsReport />} />
+              <Route path="/team" element={<Team />} />
+              <Route path="/settings" element={<AppSettings />} />
+              <Route path="/audit-log" element={<AuditLog />} />
+              <Route path="/map" element={<MapView />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

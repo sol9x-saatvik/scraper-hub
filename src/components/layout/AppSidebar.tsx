@@ -1,5 +1,5 @@
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, FileText, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Settings, FileText, ShieldAlert, Bell, Briefcase, BarChart2, Users, Cog, ClipboardList, Globe, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScraperContext } from "@/context/ScraperContext";
 
@@ -7,6 +7,14 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
   { label: "Scraper Control", to: "/scraper", icon: Settings },
   { label: "Posts Viewer", to: "/posts", icon: FileText },
+  { label: "User Monitoring", to: "/monitoring", icon: ShieldAlert },
+  { label: "Alerts", to: "/alerts", icon: Bell },
+  { label: "Case Management", to: "/cases", icon: Briefcase },
+  { label: "Analytics & Report", to: "/analytics", icon: BarChart2 },
+  { label: "Geo Intelligence", to: "/map", icon: Globe },
+  { label: "Team", to: "/team", icon: Users },
+  { label: "Settings", to: "/settings", icon: Cog },
+  { label: "Audit Log", to: "/audit-log", icon: ClipboardList },
 ];
 
 export function AppSidebar() {

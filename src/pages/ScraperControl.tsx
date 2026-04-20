@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Square, Clock, Zap, BarChart3, X, Plus, AlertCircle } from "lucide-react";
+import { Play, Square, Clock, Zap, BarChart3, X, Plus, AlertCircle, Globe, Loader2 } from "lucide-react";
 import { useScraperContext, type Platform } from "@/context/ScraperContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AIKeywordGenerator } from "@/components/scraper/AIKeywordGenerator";
 
 const IG_HASHTAG_REGEX = /^[A-Za-z0-9_]+$/;
 const TW_KEYWORD_REGEX = /^[A-Za-z0-9_]+$/;
@@ -25,16 +26,31 @@ export default function ScraperControl() {
     removeInstaProfile,
     addTwitterProfile,
     removeTwitterProfile,
+    addWebSearchKeyword,
+    removeWebSearchKeyword,
+    setWebSearchMaxResults,
     startScraper,
     stopScraper,
+    startWebSearch,
   } = useScraperContext();
 
-  const { isRunning, duration, runInstaExplore, runTwitterHome, keywords, instaProfiles, twitterProfiles, sessionStats } = state;
+  const {
+    isRunning, isWebSearchRunning, duration, runInstaExplore, runTwitterHome,
+    keywords, instaProfiles, twitterProfiles, sessionStats,
+    webSearchKeywords, webSearchMaxResults,
+  } = state;
 
   const [newKeyword, setNewKeyword] = useState("");
   const [keywordPlatform, setKeywordPlatform] = useState<Platform>("INSTAGRAM");
   const [newInstaProfile, setNewInstaProfile] = useState("");
   const [newTwitterProfile, setNewTwitterProfile] = useState("");
+  const [newWebSearchKeyword, setNewWebSearchKeyword] = useState("");
+
+  const [durationStr, setDurationStr] = useState({
+    hours: String(duration.hours),
+    minutes: String(duration.minutes),
+    seconds: String(duration.seconds),
+  });
 
   const keywordValid = newKeyword.trim().length > 0 && (
     keywordPlatform === "INSTAGRAM"
@@ -53,9 +69,21 @@ export default function ScraperControl() {
   };
 
   const updateDurationField = (field: "hours" | "minutes" | "seconds", val: string) => {
-    const n = parseInt(val, 10);
-    if (!isNaN(n) && n >= 0) {
-      setDuration({ ...duration, [field]: n });
+    // Allow empty string so user can clear and retype
+    if (val !== "" && !/^\d+$/.test(val)) return;
+    let display = val;
+    let numeric = val === "" ? 0 : parseInt(val, 10);
+    if (val !== "" && (field === "minutes" || field === "seconds")) {
+      numeric = Math.min(numeric, 59);
+      display = String(numeric);
+    }
+    setDurationStr(prev => ({ ...prev, [field]: display }));
+    setDuration({ ...duration, [field]: numeric });
+  };
+
+  const blurDurationField = (field: "hours" | "minutes" | "seconds") => {
+    if (durationStr[field] === "") {
+      setDurationStr(prev => ({ ...prev, [field]: "0" }));
     }
   };
 
@@ -70,6 +98,12 @@ export default function ScraperControl() {
   };
 
   const hasTasks = runInstaExplore || runTwitterHome || keywords.length > 0 || instaProfiles.length > 0 || twitterProfiles.length > 0;
+  const canStart = hasTasks && totalSeconds >= 10;
+  const durationError = !isRunning && totalSeconds > 0 && totalSeconds < 10
+    ? "Minimum duration is 10 seconds"
+    : !isRunning && totalSeconds === 0
+    ? "Set a duration greater than 0"
+    : null;
 
   return (
     <div className="space-y-6">
@@ -77,6 +111,8 @@ export default function ScraperControl() {
         <h1 className="text-xl font-semibold text-foreground">Unified Scraper Control</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage and monitor the scraping engine</p>
       </div>
+
+      <AIKeywordGenerator />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Status Card */}
@@ -119,17 +155,24 @@ export default function ScraperControl() {
               {(["hours", "minutes", "seconds"] as const).map((field) => (
                 <div key={field}>
                   <Input
-                    type="number"
-                    value={duration[field]}
+                    type="text"
+                    inputMode="numeric"
+                    value={durationStr[field]}
                     onChange={(e) => updateDurationField(field, e.target.value)}
+                    onBlur={() => blurDurationField(field)}
                     disabled={isRunning}
-                    min={0}
                     className="bg-background"
+                    placeholder="0"
                   />
                   <span className="text-xs text-muted-foreground mt-1 block capitalize">{field}</span>
                 </div>
               ))}
             </div>
+            {durationError && (
+              <p className="text-[11px] text-destructive mt-2 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> {durationError}
+              </p>
+            )}
           </div>
 
           {/* Task Toggles */}
@@ -149,7 +192,7 @@ export default function ScraperControl() {
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <Button onClick={startScraper} disabled={isRunning || !hasTasks} className="bg-success hover:bg-success/90 text-success-foreground">
+            <Button onClick={startScraper} disabled={isRunning || !canStart} className="bg-success hover:bg-success/90 text-success-foreground">
               <Play className="h-4 w-4 mr-2" /> Start Scraper
             </Button>
             <Button onClick={stopScraper} disabled={!isRunning} variant="destructive">
@@ -306,6 +349,83 @@ export default function ScraperControl() {
             {twitterProfiles.length === 0 && <span className="text-xs text-muted-foreground">No profiles added</span>}
           </div>
         </div>
+      </div>
+
+      {/* Web Search */}
+      <div className="rounded-lg border border-border bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Globe className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium text-card-foreground">Web Search</h3>
+        </div>
+
+        <div className="mb-4">
+          <label className="text-xs text-muted-foreground mb-1.5 block">Keywords</label>
+          <div className="flex gap-2 mb-3">
+            <Input
+              value={newWebSearchKeyword}
+              onChange={(e) => setNewWebSearchKeyword(e.target.value)}
+              placeholder="Enter keyword..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newWebSearchKeyword.trim()) {
+                  addWebSearchKeyword(newWebSearchKeyword.trim());
+                  setNewWebSearchKeyword("");
+                }
+              }}
+              disabled={isWebSearchRunning}
+              className="bg-background"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={isWebSearchRunning || !newWebSearchKeyword.trim()}
+              onClick={() => { addWebSearchKeyword(newWebSearchKeyword.trim()); setNewWebSearchKeyword(""); }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {webSearchKeywords.map((kw, i) => (
+              <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
+                <Globe className="h-3 w-3" />
+                {kw}
+                {!isWebSearchRunning && (
+                  <button onClick={() => removeWebSearchKeyword(i)} className="hover:text-destructive transition-colors ml-1">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+            {webSearchKeywords.length === 0 && <span className="text-xs text-muted-foreground">No keywords added</span>}
+          </div>
+        </div>
+
+        <div className="mb-5">
+          <label className="text-xs text-muted-foreground mb-1.5 block">Max Results per Keyword</label>
+          <Select
+            value={String(webSearchMaxResults)}
+            onValueChange={(v) => setWebSearchMaxResults(Number(v))}
+          >
+            <SelectTrigger className="w-[120px] bg-background"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5</SelectItem>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="15">15</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Button
+          onClick={startWebSearch}
+          disabled={isWebSearchRunning || webSearchKeywords.length === 0}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+        >
+          {isWebSearchRunning
+            ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Starting...</>
+            : <><Globe className="h-4 w-4 mr-2" /> Start Web Search</>
+          }
+        </Button>
+        <p className="text-xs text-muted-foreground mt-2">Web search runs after browser scrapers complete</p>
       </div>
 
       {/* Session Stats */}
