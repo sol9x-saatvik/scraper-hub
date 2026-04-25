@@ -39,7 +39,7 @@ export function AIKeywordGenerator() {
     setCooldown(true);
     setTimeout(() => setCooldown(false), 3000);
 
-    const prompt = `You are a social media monitoring assistant. Generate 8-10 specific, effective search keywords for monitoring the following topic across social media platforms and the web.
+    const prompt = `You are a social media and OSINTmonitoring expert. Generate 8-10 specific, effective search keywords for monitoring the following topic across social media platforms and the web.
 
 Topic: ${topic.trim()}
 
@@ -133,7 +133,7 @@ Rules:
       {/* Header */}
       <div className="flex items-center gap-2.5 mb-4">
         <Sparkles className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-medium text-card-foreground">AI Keyword Generator</h3>
+        <h3 className="text-sm font-medium text-card-foreground">Assign task to your agents here...</h3>
         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/15 text-primary tracking-wide">
           AI
         </span>

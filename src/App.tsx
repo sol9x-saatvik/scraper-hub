@@ -16,6 +16,7 @@ import Team from "./pages/Team";
 import AppSettings from "./pages/AppSettings";
 import AuditLog from "./pages/AuditLog";
 import MapView from "./pages/MapView";
+import Investigate from "./pages/Investigate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/settings" element={<AppSettings />} />
               <Route path="/audit-log" element={<AuditLog />} />
               <Route path="/map" element={<MapView />} />
+              <Route path="/investigate" element={<Investigate />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

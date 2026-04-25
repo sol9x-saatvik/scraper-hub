@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(npm run:*)",
+      "Bash(cd:*)",
+      "Read(//c/Users/ASUS/selenium-work/**)",
+      "Read(//c/Users/ASUS/selenium-work//**)",
+      "Bash(npm install *)",
+      "Bash(npm ls *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('React:', p.dependencies.react, '| react-dom:', p.dependencies['react-dom']\\)\")",
+      "Bash(npm uninstall *)"
+    ]
+  }
+}
