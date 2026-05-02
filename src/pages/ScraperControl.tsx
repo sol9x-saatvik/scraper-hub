@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Square, Clock, Zap, BarChart3, X, Plus, AlertCircle, Globe, Loader2 } from "lucide-react";
+import { Play, Square, Clock, Zap, BarChart3, X, Plus, AlertCircle, Globe, Loader2, Settings2, Activity, ListFilter, Users } from "lucide-react";
 import { useScraperContext, type Platform } from "@/context/ScraperContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AIKeywordGenerator } from "@/components/scraper/AIKeywordGenerator";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 
 const IG_HASHTAG_REGEX = /^[A-Za-z0-9_]+$/;
 const TW_KEYWORD_REGEX = /^[A-Za-z0-9_]+$/;
@@ -69,7 +74,6 @@ export default function ScraperControl() {
   };
 
   const updateDurationField = (field: "hours" | "minutes" | "seconds", val: string) => {
-    // Allow empty string so user can clear and retype
     if (val !== "" && !/^\d+$/.test(val)) return;
     let display = val;
     let numeric = val === "" ? 0 : parseInt(val, 10);
@@ -102,366 +106,432 @@ export default function ScraperControl() {
   const durationError = !isRunning && totalSeconds > 0 && totalSeconds < 10
     ? "Minimum duration is 10 seconds"
     : !isRunning && totalSeconds === 0
-    ? "Set a duration greater than 0"
-    : null;
+      ? "Set a duration greater than 0"
+      : null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">AI OSINT Agent Control</h1>
-        <p className="text-sm text-muted-foreground mt-1">Control all agents at one place!</p>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">AI OSINT Agent Control</h1>
+        <p className="text-muted-foreground">Manage and monitor your automated scraping agents from a central dashboard.</p>
       </div>
 
       <AIKeywordGenerator />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Status Card */}
-        <div className="rounded-lg border border-border bg-card p-5 lg:col-span-1">
-          <h3 className="text-sm font-medium text-card-foreground mb-4">Scraper Status</h3>
-          <div className="flex items-center gap-3 mb-4">
-            <span className={cn("h-3 w-3 rounded-full", isRunning ? "bg-success animate-pulse-slow" : "bg-destructive")} />
-            <span className="text-lg font-semibold text-card-foreground">{isRunning ? "Running" : "Stopped"}</span>
-          </div>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Started at</span>
-              <span className="text-card-foreground font-mono text-xs">
-                {sessionStats.startedAt ? new Date(sessionStats.startedAt).toLocaleTimeString() : "—"}
-              </span>
+        <Card className="lg:col-span-1 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              Scraper Status
+            </CardTitle>
+            <CardDescription>Real-time agent monitoring</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-accent/50 border border-border">
+              <span className={cn("h-3 w-3 rounded-full shadow-[0_0_8px_rgba(var(--success),0.5)]", isRunning ? "bg-success animate-pulse" : "bg-destructive")} />
+              <span className="text-xl font-bold text-foreground">{isRunning ? "Running" : "Stopped"}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Duration</span>
-              <span className="text-card-foreground">{duration.hours}h {duration.minutes}m {duration.seconds}s</span>
+
+            <div className="space-y-4 pt-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Started At</span>
+                <Badge variant="outline" className="font-mono font-normal">
+                  {sessionStats.startedAt ? new Date(sessionStats.startedAt).toLocaleTimeString() : "—"}
+                </Badge>
+              </div>
+              <Separator className="opacity-50" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Total Duration</span>
+                <span className="font-medium text-foreground">{duration.hours}h {duration.minutes}m {duration.seconds}s</span>
+              </div>
+              <Separator className="opacity-50" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Active Tasks</span>
+                <Badge variant="secondary" className="font-bold">{sessionStats.activeTasks}</Badge>
+              </div>
+              <Separator className="opacity-50" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Posts Scraped</span>
+                <span className="font-bold text-primary">{sessionStats.postsScraped}</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Active Tasks</span>
-              <span className="text-card-foreground font-semibold">{sessionStats.activeTasks}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Posts scraped</span>
-              <span className="text-card-foreground font-semibold">{sessionStats.postsScraped}</span>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Controls */}
-        <div className="rounded-lg border border-border bg-card p-5 lg:col-span-2">
-          <h3 className="text-sm font-medium text-card-foreground mb-4">Controls</h3>
-
-          {/* Duration Inputs */}
-          <div className="mb-5">
-            <label className="text-xs text-muted-foreground mb-1.5 block">Duration</label>
-            <div className="grid grid-cols-3 gap-3">
-              {(["hours", "minutes", "seconds"] as const).map((field) => (
-                <div key={field}>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={durationStr[field]}
-                    onChange={(e) => updateDurationField(field, e.target.value)}
-                    onBlur={() => blurDurationField(field)}
-                    disabled={isRunning}
-                    className="bg-background"
-                    placeholder="0"
-                  />
-                  <span className="text-xs text-muted-foreground mt-1 block capitalize">{field}</span>
-                </div>
-              ))}
-            </div>
-            {durationError && (
-              <p className="text-[11px] text-destructive mt-2 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> {durationError}
-              </p>
-            )}
-          </div>
-
-          {/* Task Toggles */}
-          <div className="mb-5">
-            <label className="text-xs text-muted-foreground mb-2 block">Task Toggles</label>
-            <div className="space-y-2.5">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <Checkbox checked={runInstaExplore} onCheckedChange={(v) => setRunInstaExplore(!!v)} disabled={isRunning} />
-                <span className="text-sm text-card-foreground">Run Instagram Explore</span>
-              </label>
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <Checkbox checked={runTwitterHome} onCheckedChange={(v) => setRunTwitterHome(!!v)} disabled={isRunning} />
-                <span className="text-sm text-card-foreground">Run Twitter Home</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button onClick={startScraper} disabled={isRunning || !canStart} className="bg-success hover:bg-success/90 text-success-foreground">
-              <Play className="h-4 w-4 mr-2" /> Start Scraper
-            </Button>
-            <Button onClick={stopScraper} disabled={!isRunning} variant="destructive">
-              <Square className="h-4 w-4 mr-2" /> Stop Scraper
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Keyword Management */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-card-foreground mb-4">Keyword Management</h3>
-
-        <div className="flex flex-wrap gap-2 items-end mb-4">
-          <div className="w-[150px]">
-            <label className="text-xs text-muted-foreground mb-1.5 block">Platform</label>
-            <Select value={keywordPlatform} onValueChange={(v) => setKeywordPlatform(v as Platform)}>
-              <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="INSTAGRAM">Instagram</SelectItem>
-                <SelectItem value="TWITTER">Twitter</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-muted-foreground mb-1.5 block">
-              Keyword {keywordPlatform === "INSTAGRAM" ? "(letters, numbers, _ only)" : "(letters, numbers, _ only)"}
-            </label>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Input
-                  value={newKeyword}
-                  onChange={(e) => setNewKeyword(e.target.value)}
-                  placeholder="Enter keyword..."
-                  onKeyDown={(e) => e.key === "Enter" && handleAddKeyword()}
-                  disabled={isRunning}
-                  className={cn("bg-background", newKeyword.trim() && !keywordValid && "border-destructive")}
-                />
-                {newKeyword.trim() && !keywordValid && (
-                  <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> Invalid format
-                  </p>
-                )}
+        <Card className="lg:col-span-2 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Settings2 className="h-4 w-4 text-primary" />
+              Agent Configuration
+            </CardTitle>
+            <CardDescription>Configure session parameters and active modules</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            {/* Duration Inputs */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold">Session Duration</Label>
+              <div className="grid grid-cols-3 gap-4">
+                {(["hours", "minutes", "seconds"] as const).map((field) => (
+                  <div key={field} className="space-y-2">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={durationStr[field]}
+                      onChange={(e) => updateDurationField(field, e.target.value)}
+                      onBlur={() => blurDurationField(field)}
+                      disabled={isRunning}
+                      className="text-center font-mono text-lg py-6"
+                      placeholder="00"
+                    />
+                    <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest">{field}</p>
+                  </div>
+                ))}
               </div>
-              <Button variant="outline" size="icon" onClick={handleAddKeyword} disabled={isRunning || !keywordValid}>
-                <Plus className="h-4 w-4" />
+              {durationError && (
+                <div className="flex items-center gap-2 text-destructive text-xs bg-destructive/10 p-2 rounded-md">
+                  <AlertCircle className="h-4 w-4" />
+                  {durationError}
+                </div>
+              )}
+            </div>
+
+            {/* Task Toggles */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold">Discovery Modules</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-3 p-3 rounded-md border border-border bg-accent/20 hover:bg-accent/40 transition-colors cursor-pointer" onClick={() => !isRunning && setRunInstaExplore(!runInstaExplore)}>
+                  <Checkbox
+                    id="insta-explore"
+                    checked={runInstaExplore}
+                    onCheckedChange={(v) => setRunInstaExplore(!!v)}
+                    disabled={isRunning}
+                  />
+                  <Label htmlFor="insta-explore" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                    Instagram Explore Feed
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-md border border-border bg-accent/20 hover:bg-accent/40 transition-colors cursor-pointer" onClick={() => !isRunning && setRunTwitterHome(!runTwitterHome)}>
+                  <Checkbox
+                    id="twitter-home"
+                    checked={runTwitterHome}
+                    onCheckedChange={(v) => setRunTwitterHome(!!v)}
+                    disabled={isRunning}
+                  />
+                  <Label htmlFor="twitter-home" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                    Twitter Home Timeline
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 pt-2">
+              <Button
+                onClick={startScraper}
+                disabled={isRunning || !canStart}
+                className="flex-1 h-11 text-base font-semibold shadow-md bg-success hover:bg-success/90 text-success-foreground"
+              >
+                <Play className="h-5 w-5 mr-2 fill-current" /> Start Agents
+              </Button>
+              <Button
+                onClick={stopScraper}
+                disabled={!isRunning}
+                variant="destructive"
+                className="flex-1 h-11 text-base font-semibold shadow-md"
+              >
+                <Square className="h-5 w-5 mr-2 fill-current" /> Stop Session
               </Button>
             </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {keywords.map((k, i) => (
-            <span key={`${k.platform}-${k.value}-${i}`} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
-              <span className={cn("text-[10px] font-bold px-1 py-0.5 rounded", k.platform === "INSTAGRAM" ? "bg-accent text-accent-foreground" : "bg-primary/15 text-primary")}>
-                {k.platform === "INSTAGRAM" ? "IG" : "TW"}
-              </span>
-              {k.value}
-              {!isRunning && (
-                <button onClick={() => removeKeyword(k.platform, k.value)} className="hover:text-destructive transition-colors ml-1">
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </span>
-          ))}
-          {keywords.length === 0 && <span className="text-xs text-muted-foreground">No keywords added</span>}
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Profile Scraping */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Instagram Profile */}
-        <div className="rounded-lg border border-border bg-card p-5">
-          <h3 className="text-sm font-medium text-card-foreground mb-4">Instagram Profile Scraping</h3>
-          <div className="flex gap-2 mb-3">
-            <div className="flex-1 relative">
-              <Input
-                value={newInstaProfile}
-                onChange={(e) => setNewInstaProfile(e.target.value)}
-                placeholder="Username (e.g. john_doe)"
-                onKeyDown={(e) => e.key === "Enter" && instaProfileValid && !isRunning && (addInstaProfile(newInstaProfile.trim()), setNewInstaProfile(""))}
-                disabled={isRunning}
-                className={cn("bg-background", newInstaProfile.trim() && !instaProfileValid && "border-destructive")}
-              />
-              {newInstaProfile.trim() && !instaProfileValid && (
-                <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Letters, numbers, _ and . only. Cannot end with .
-                </p>
-              )}
-            </div>
-            <Button
-              variant="outline" size="icon"
-              disabled={isRunning || !instaProfileValid}
-              onClick={() => { addInstaProfile(newInstaProfile.trim()); setNewInstaProfile(""); }}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {instaProfiles.map((p, i) => (
-              <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
-                <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-accent text-accent-foreground">IG</span>
-                @{p}
-                {!isRunning && (
-                  <button onClick={() => removeInstaProfile(p)} className="hover:text-destructive transition-colors ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </span>
-            ))}
-            {instaProfiles.length === 0 && <span className="text-xs text-muted-foreground">No profiles added</span>}
-          </div>
-        </div>
+      {/* Keyword & Profile Management */}
+      <Tabs defaultValue="keywords" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsTrigger value="keywords" className="gap-2"><ListFilter className="h-4 w-4" /> Keywords</TabsTrigger>
+          <TabsTrigger value="profiles" className="gap-2"><Users className="h-4 w-4" /> Profiles</TabsTrigger>
+          <TabsTrigger value="web" className="gap-2"><Globe className="h-4 w-4" /> Web Search</TabsTrigger>
+        </TabsList>
 
-        {/* Twitter Profile */}
-        <div className="rounded-lg border border-border bg-card p-5">
-          <h3 className="text-sm font-medium text-card-foreground mb-4">Twitter Profile Scraping</h3>
-          <div className="flex gap-2 mb-3">
-            <div className="flex-1 relative">
-              <Input
-                value={newTwitterProfile}
-                onChange={(e) => setNewTwitterProfile(e.target.value)}
-                placeholder="Username (e.g. john_doe)"
-                onKeyDown={(e) => e.key === "Enter" && twitterProfileValid && !isRunning && (addTwitterProfile(newTwitterProfile.trim()), setNewTwitterProfile(""))}
-                disabled={isRunning}
-                className={cn("bg-background", newTwitterProfile.trim() && !twitterProfileValid && "border-destructive")}
-              />
-              {newTwitterProfile.trim() && !twitterProfileValid && (
-                <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Letters, numbers, _ only. No dots or spaces.
-                </p>
-              )}
-            </div>
-            <Button
-              variant="outline" size="icon"
-              disabled={isRunning || !twitterProfileValid}
-              onClick={() => { addTwitterProfile(newTwitterProfile.trim()); setNewTwitterProfile(""); }}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {twitterProfiles.map((p, i) => (
-              <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
-                <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-primary/15 text-primary">TW</span>
-                @{p}
-                {!isRunning && (
-                  <button onClick={() => removeTwitterProfile(p)} className="hover:text-destructive transition-colors ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </span>
-            ))}
-            {twitterProfiles.length === 0 && <span className="text-xs text-muted-foreground">No profiles added</span>}
-          </div>
-        </div>
-      </div>
+        <TabsContent value="keywords">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Target Keywords</CardTitle>
+              <CardDescription>Add specific hashtags or search terms for the agents to monitor.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-end">
+                <div className="w-full sm:w-48 space-y-2">
+                  <Label>Platform</Label>
+                  <Select value={keywordPlatform} onValueChange={(v) => setKeywordPlatform(v as Platform)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="INSTAGRAM">Instagram</SelectItem>
+                      <SelectItem value="TWITTER">Twitter</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label>Keyword</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newKeyword}
+                      onChange={(e) => setNewKeyword(e.target.value)}
+                      placeholder="e.g. cybersecurity"
+                      onKeyDown={(e) => e.key === "Enter" && handleAddKeyword()}
+                      disabled={isRunning}
+                      className={cn(newKeyword.trim() && !keywordValid && "border-destructive")}
+                    />
+                    <Button onClick={handleAddKeyword} disabled={isRunning || !keywordValid} size="icon">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {newKeyword.trim() && !keywordValid && (
+                    <p className="text-[10px] text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> Invalid format (letters, numbers, _ only)
+                    </p>
+                  )}
+                </div>
+              </div>
 
-      {/* Web Search */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-card-foreground">Web Search</h3>
-        </div>
+              <div className="flex flex-wrap gap-2 min-h-[40px] p-3 rounded-md bg-accent/20 border border-dashed border-border">
+                {keywords.map((k, i) => (
+                  <Badge key={i} variant="secondary" className="pl-1 pr-1.5 py-1 gap-2 border border-border">
+                    <Badge className={cn("px-1.5 py-0 text-[9px] uppercase", k.platform === "INSTAGRAM" ? "bg-accent text-accent-foreground" : "bg-primary/20 text-primary hover:bg-primary/20")}>
+                      {k.platform === "INSTAGRAM" ? "IG" : "TW"}
+                    </Badge>
+                    <span className="font-medium">{k.value}</span>
+                    {!isRunning && (
+                      <button onClick={() => removeKeyword(k.platform, k.value)} className="hover:text-destructive transition-colors rounded-full hover:bg-background p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+                {keywords.length === 0 && <span className="text-xs text-muted-foreground flex items-center justify-center w-full">No keywords active</span>}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <div className="mb-4">
-          <label className="text-xs text-muted-foreground mb-1.5 block">Keywords</label>
-          <div className="flex gap-2 mb-3">
-            <Input
-              value={newWebSearchKeyword}
-              onChange={(e) => setNewWebSearchKeyword(e.target.value)}
-              placeholder="Enter keyword..."
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newWebSearchKeyword.trim()) {
-                  addWebSearchKeyword(newWebSearchKeyword.trim());
-                  setNewWebSearchKeyword("");
-                }
-              }}
-              disabled={isWebSearchRunning}
-              className="bg-background"
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={isWebSearchRunning || !newWebSearchKeyword.trim()}
-              onClick={() => { addWebSearchKeyword(newWebSearchKeyword.trim()); setNewWebSearchKeyword(""); }}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+        <TabsContent value="profiles">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Instagram Profile */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Instagram Accounts</CardTitle>
+                <CardDescription>Scrape recent posts from specific users.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={newInstaProfile}
+                    onChange={(e) => setNewInstaProfile(e.target.value)}
+                    placeholder="Username..."
+                    onKeyDown={(e) => e.key === "Enter" && instaProfileValid && !isRunning && (addInstaProfile(newInstaProfile.trim()), setNewInstaProfile(""))}
+                    disabled={isRunning}
+                    className={cn(newInstaProfile.trim() && !instaProfileValid && "border-destructive")}
+                  />
+                  <Button
+                    disabled={isRunning || !instaProfileValid}
+                    onClick={() => { addInstaProfile(newInstaProfile.trim()); setNewInstaProfile(""); }}
+                    size="icon"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 p-3 rounded-md bg-accent/20 border border-dashed border-border min-h-[100px]">
+                  {instaProfiles.map((p, i) => (
+                    <Badge key={i} variant="outline" className="gap-2 bg-background font-mono">
+                      <span className="text-accent font-bold">IG</span>
+                      @{p}
+                      {!isRunning && (
+                        <button onClick={() => removeInstaProfile(p)} className="hover:text-destructive text-muted-foreground">
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                  {instaProfiles.length === 0 && <span className="text-xs text-muted-foreground m-auto">No IG profiles</span>}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Twitter Profile */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Twitter Accounts</CardTitle>
+                <CardDescription>Monitor specific Twitter handles.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={newTwitterProfile}
+                    onChange={(e) => setNewTwitterProfile(e.target.value)}
+                    placeholder="Handle..."
+                    onKeyDown={(e) => e.key === "Enter" && twitterProfileValid && !isRunning && (addTwitterProfile(newTwitterProfile.trim()), setNewTwitterProfile(""))}
+                    disabled={isRunning}
+                    className={cn(newTwitterProfile.trim() && !twitterProfileValid && "border-destructive")}
+                  />
+                  <Button
+                    disabled={isRunning || !twitterProfileValid}
+                    onClick={() => { addTwitterProfile(newTwitterProfile.trim()); setNewTwitterProfile(""); }}
+                    size="icon"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 p-3 rounded-md bg-accent/20 border border-dashed border-border min-h-[100px]">
+                  {twitterProfiles.map((p, i) => (
+                    <Badge key={i} variant="outline" className="gap-2 bg-background font-mono">
+                      <span className="text-primary font-bold">TW</span>
+                      @{p}
+                      {!isRunning && (
+                        <button onClick={() => removeTwitterProfile(p)} className="hover:text-destructive text-muted-foreground">
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                  {twitterProfiles.length === 0 && <span className="text-xs text-muted-foreground m-auto">No Twitter profiles</span>}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {webSearchKeywords.map((kw, i) => (
-              <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
-                <Globe className="h-3 w-3" />
-                {kw}
-                {!isWebSearchRunning && (
-                  <button onClick={() => removeWebSearchKeyword(i)} className="hover:text-destructive transition-colors ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </span>
-            ))}
-            {webSearchKeywords.length === 0 && <span className="text-xs text-muted-foreground">No keywords added</span>}
-          </div>
-        </div>
+        </TabsContent>
 
-        <div className="mb-5">
-          <label className="text-xs text-muted-foreground mb-1.5 block">Max Results per Keyword</label>
-          <Select
-            value={String(webSearchMaxResults)}
-            onValueChange={(v) => setWebSearchMaxResults(Number(v))}
-          >
-            <SelectTrigger className="w-[120px] bg-background"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="5">5</SelectItem>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="15">15</SelectItem>
-              <SelectItem value="20">20</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <TabsContent value="web">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Global Web Search</CardTitle>
+              <CardDescription>Search for keywords across news and web sources.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <Label>Web Keywords</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newWebSearchKeyword}
+                      onChange={(e) => setNewWebSearchKeyword(e.target.value)}
+                      placeholder="e.g. data breach report"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newWebSearchKeyword.trim()) {
+                          addWebSearchKeyword(newWebSearchKeyword.trim());
+                          setNewWebSearchKeyword("");
+                        }
+                      }}
+                      disabled={isWebSearchRunning}
+                    />
+                    <Button
+                      disabled={isWebSearchRunning || !newWebSearchKeyword.trim()}
+                      onClick={() => { addWebSearchKeyword(newWebSearchKeyword.trim()); setNewWebSearchKeyword(""); }}
+                      size="icon"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="w-full sm:w-48 space-y-2">
+                  <Label>Max Results</Label>
+                  <Select
+                    value={String(webSearchMaxResults)}
+                    onValueChange={(v) => setWebSearchMaxResults(Number(v))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 results</SelectItem>
+                      <SelectItem value="10">10 results</SelectItem>
+                      <SelectItem value="15">15 results</SelectItem>
+                      <SelectItem value="20">20 results</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-        <Button
-          onClick={startWebSearch}
-          disabled={isWebSearchRunning || webSearchKeywords.length === 0}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
-        >
-          {isWebSearchRunning
-            ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Starting...</>
-            : <><Globe className="h-4 w-4 mr-2" /> Start Web Search</>
-          }
-        </Button>
-        <p className="text-xs text-muted-foreground mt-2">Web search runs after browser scrapers complete</p>
-      </div>
+              <div className="flex flex-wrap gap-2 min-h-[40px] p-3 rounded-md bg-accent/20 border border-dashed border-border">
+                {webSearchKeywords.map((kw, i) => (
+                  <Badge key={i} variant="secondary" className="gap-2">
+                    <Globe className="h-3 w-3" />
+                    {kw}
+                    {!isWebSearchRunning && (
+                      <button onClick={() => removeWebSearchKeyword(i)} className="hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+                {webSearchKeywords.length === 0 && <span className="text-xs text-muted-foreground m-auto">No web keywords</span>}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={startWebSearch}
+                  disabled={isWebSearchRunning || webSearchKeywords.length === 0}
+                  className="w-full sm:w-auto font-bold h-11"
+                  variant="secondary"
+                >
+                  {isWebSearchRunning
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Executing Search...</>
+                    : <><Globe className="h-4 w-4 mr-2" /> Execute Web Search</>
+                  }
+                </Button>
+                <p className="text-xs text-muted-foreground">Note: Web search executes sequentially after social media agents finish.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Session Stats */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-card-foreground mb-4">Session Stats</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-          <div className="flex items-center gap-3 p-3 rounded-md bg-background">
-            <Zap className="h-4 w-4 text-warning" />
-            <div>
-              <p className="text-xs text-muted-foreground">Posts/min</p>
-              <p className="text-lg font-semibold text-card-foreground">{sessionStats.postsPerMinute}</p>
+      <Card className="shadow-inner bg-accent/10">
+        <CardContent className="pt-6 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-background border border-border shadow-sm">
+              <div className="p-2 rounded-lg bg-orange-500/10 text-orange-600">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Efficiency</p>
+                <p className="text-2xl font-black text-foreground">{sessionStats.postsPerMinute} <span className="text-xs font-normal">p/m</span></p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-background border border-border shadow-sm">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <Clock className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Elapsed Time</p>
+                <p className="text-2xl font-black text-foreground">{formatTime(sessionStats.elapsedTime)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-background border border-border shadow-sm">
+              <div className="p-2 rounded-lg bg-success/10 text-success">
+                <BarChart3 className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Total Harvested</p>
+                <p className="text-2xl font-black text-foreground">{sessionStats.postsScraped}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 rounded-md bg-background">
-            <Clock className="h-4 w-4 text-primary" />
-            <div>
-              <p className="text-xs text-muted-foreground">Time Elapsed</p>
-              <p className="text-lg font-semibold text-card-foreground">{formatTime(sessionStats.elapsedTime)}</p>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-foreground">Session Progress</span>
+                <Badge variant="outline" className="text-[10px]">{Math.round(progressPercent)}% Complete</Badge>
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">{formatTime(sessionStats.elapsedTime)} / {formatTime(totalSeconds)}</span>
             </div>
+            <Progress value={progressPercent} className="h-3 shadow-inner" />
           </div>
-          <div className="flex items-center gap-3 p-3 rounded-md bg-background">
-            <BarChart3 className="h-4 w-4 text-success" />
-            <div>
-              <p className="text-xs text-muted-foreground">Total Scraped</p>
-              <p className="text-lg font-semibold text-card-foreground">{sessionStats.postsScraped}</p>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-            <span>Progress</span>
-            <span>{Math.round(progressPercent)}%</span>
-          </div>
-          <Progress value={progressPercent} className="h-2" />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

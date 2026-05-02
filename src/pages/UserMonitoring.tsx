@@ -3,19 +3,20 @@ import { useNavigate } from "react-router-dom";
 import {
   ShieldAlert, Users, AlertTriangle, CheckCircle, Star,
   Trash2, Search, PlusCircle, Eye, Play, Clock, RotateCcw,
-  Bookmark, BookmarkX, Flag,
+  Bookmark, BookmarkX, Flag, ListFilter, Trash, UserPlus, ExternalLink, MoreVertical,
+  Activity, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -23,17 +24,20 @@ import { useMonitoredUsers } from "@/hooks/useMonitoredUsers";
 import { useQuery } from "@tanstack/react-query";
 import { getAllPosts } from "@/services/api";
 import type { MonitoredUser } from "@/services/api";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const API_BASE = "http://localhost:8081/api";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Strip any leading @ signs from a username */
 function cleanUsername(username: string): string {
   return username.replace(/^@+/, "");
 }
-
-// ── FlaggedPost types + localStorage ─────────────────────────────────────────
 
 export interface FlaggedPost {
   id: string;
@@ -55,7 +59,6 @@ function saveFlaggedPosts(posts: FlaggedPost[]): void {
   localStorage.setItem("flaggedPosts", JSON.stringify(posts));
 }
 
-// ── Seed data seeded once if DB is empty ──────────────────────────────────────
 const SEED_USERS: Omit<MonitoredUser, "id" | "addedAt">[] = [
   { username: "shadow_tracker99", platform: "Instagram", status: "Suspected", addedFrom: "Manual", harmfulRating: 4, notes: "Posted suspicious content multiple times" },
   { username: "darkweb_news", platform: "Twitter", status: "Tracked", addedFrom: "ScraperProfile", harmfulRating: 5, notes: "Known extremist account" },
@@ -64,7 +67,6 @@ const SEED_USERS: Omit<MonitoredUser, "id" | "addedAt">[] = [
   { username: "viral.content.hub", platform: "Instagram", status: "Tracked", addedFrom: "Manual", harmfulRating: 2, notes: "Spreading misinformation" },
 ];
 
-// ── Star Rating ───────────────────────────────────────────────────────────────
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   const [hovered, setHovered] = useState(0);
   return (
@@ -81,7 +83,7 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
           <Star
             className="h-4 w-4"
             fill={(hovered || value) >= i ? "hsl(38,92%,50%)" : "transparent"}
-            stroke={(hovered || value) >= i ? "hsl(38,92%,50%)" : "hsl(220,10%,40%)"}
+            stroke={(hovered || value) >= i ? "hsl(38,92%,50%)" : "hsl(var(--muted-foreground))"}
           />
         </button>
       ))}
@@ -89,292 +91,12 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
   );
 }
 
-// ── Status / Platform badges ──────────────────────────────────────────────────
-const STATUS_STYLES: Record<string, string> = {
-  Suspected: "bg-destructive/15 text-destructive",
-  Tracked: "bg-yellow-500/15 text-yellow-400",
-  Cleared: "bg-emerald-500/15 text-emerald-400",
+const STATUS_BADGE_STYLES: Record<string, string> = {
+  Suspected: "bg-destructive/15 text-destructive border-destructive/20",
+  Tracked: "bg-yellow-500/15 text-yellow-600 border-yellow-500/20",
+  Cleared: "bg-emerald-500/15 text-emerald-600 border-emerald-500/20",
 };
 
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", STATUS_STYLES[status] ?? "bg-secondary text-secondary-foreground")}>
-      {status}
-    </span>
-  );
-}
-
-function PlatformBadge({ platform }: { platform: string }) {
-  return (
-    <span className={cn(
-      "text-xs font-medium px-2 py-0.5 rounded-full",
-      platform === "Twitter" ? "bg-primary/15 text-primary" : "bg-accent text-accent-foreground"
-    )}>
-      {platform}
-    </span>
-  );
-}
-
-// ── Add User Dialog ───────────────────────────────────────────────────────────
-interface AddUserDialogProps {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  onAdd: (user: Partial<MonitoredUser>) => Promise<void>;
-  existingUsers: MonitoredUser[];
-}
-
-function AddUserDialog({ open, onOpenChange, onAdd, existingUsers }: AddUserDialogProps) {
-  const [username, setUsername] = useState("");
-  const [platform, setPlatform] = useState<"Instagram" | "Twitter">("Instagram");
-  const [status, setStatus] = useState<"Suspected" | "Tracked" | "Cleared">("Suspected");
-  const [rating, setRating] = useState(1);
-  const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const reset = () => {
-    setUsername(""); setPlatform("Instagram"); setStatus("Suspected");
-    setRating(1); setNotes("");
-  };
-
-  const handleSubmit = async () => {
-    const cleaned = cleanUsername(username.trim());
-    if (!cleaned) { toast.error("Username is required"); return; }
-
-    // Client-side duplicate check (same username + same platform)
-    const isDuplicate = existingUsers.some(
-      (u) => cleanUsername(u.username).toLowerCase() === cleaned.toLowerCase() && u.platform === platform
-    );
-    if (isDuplicate) {
-      toast.error(`${cleaned} (${platform}) is already being monitored`);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await onAdd({ username: cleaned, platform, status, addedFrom: "Manual", harmfulRating: rating, notes });
-      toast.success(`${cleaned} added to monitoring`);
-      reset();
-      onOpenChange(false);
-    } catch (err: any) {
-      if (err?.status === 409) toast.error("User already monitored");
-      else toast.error("Failed to add user");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Add User to Monitoring</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Username</label>
-            <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. john_doe"
-              className="bg-background"
-            />
-            {username.startsWith("@") && (
-              <p className="text-[11px] text-muted-foreground mt-1">@ will be stripped automatically</p>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Platform</label>
-              <Select value={platform} onValueChange={(v) => setPlatform(v as any)}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Instagram">Instagram</SelectItem>
-                  <SelectItem value="Twitter">Twitter</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Status</label>
-              <Select value={status} onValueChange={(v) => setStatus(v as any)}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Suspected">Suspected</SelectItem>
-                  <SelectItem value="Tracked">Tracked</SelectItem>
-                  <SelectItem value="Cleared">Cleared</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Harmful Rating</label>
-            <StarRating value={rating} onChange={setRating} />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Notes</label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes..."
-              className="bg-background resize-none"
-              rows={3}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? "Adding..." : "Add User"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── Scrape Dialog ─────────────────────────────────────────────────────────────
-interface ScrapeDialogProps {
-  user: MonitoredUser | null;
-  lastPostDate: string | null;
-  onClose: () => void;
-}
-
-function ScrapeDialog({ user, lastPostDate, onClose }: ScrapeDialogProps) {
-  const [mode, setMode] = useState<"duration" | "until_last">("duration");
-  const [hours, setHours] = useState("0");
-  const [minutes, setMinutes] = useState("10");
-  const [seconds, setSeconds] = useState("0");
-  const [loading, setLoading] = useState(false);
-
-  if (!user) return null;
-
-  const totalSeconds = (parseInt(hours) || 0) * 3600 + (parseInt(minutes) || 0) * 60 + (parseInt(seconds) || 0);
-  const canStart = mode === "until_last" || totalSeconds >= 10;
-
-  const handleStart = async () => {
-    setLoading(true);
-    try {
-      const payload: Record<string, any> = {
-        instaExplore: false,
-        twitterHome: false,
-        instaKeywords: [],
-        twitterKeywords: [],
-        instaProfiles: user.platform === "Instagram" ? [cleanUsername(user.username)] : [],
-        twitterProfiles: user.platform === "Twitter" ? [cleanUsername(user.username)] : [],
-        duration: mode === "duration" ? totalSeconds : 86400, // 24h max for "until last"
-      };
-      if (mode === "until_last" && lastPostDate) {
-        payload.stopAtDate = lastPostDate;
-        payload.untilLastPost = true;
-      }
-
-      const res = await fetch(`${API_BASE}/scraper/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Failed to start scraper");
-      toast.success(`Scraper started for @${cleanUsername(user.username)}`);
-      onClose();
-    } catch {
-      toast.error("Failed to start scraper. Make sure the backend is running.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={!!user} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Scrape @{cleanUsername(user.username)}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          {/* Mode selector */}
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Scrape Mode</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setMode("duration")}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 p-3 rounded-lg border text-xs font-medium transition-colors",
-                  mode === "duration"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/50"
-                )}
-              >
-                <Clock className="h-4 w-4" />
-                Set Duration
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("until_last")}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 p-3 rounded-lg border text-xs font-medium transition-colors",
-                  mode === "until_last"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/50"
-                )}
-              >
-                <RotateCcw className="h-4 w-4" />
-                Until Last Post
-              </button>
-            </div>
-          </div>
-
-          {mode === "duration" ? (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Duration</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: "Hours", val: hours, set: setHours },
-                  { label: "Minutes", val: minutes, set: setMinutes },
-                  { label: "Seconds", val: seconds, set: setSeconds },
-                ].map(({ label, val, set }) => (
-                  <div key={label}>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={val}
-                      onChange={(e) => { if (/^\d*$/.test(e.target.value)) set(e.target.value); }}
-                      className="bg-background text-center"
-                      placeholder="0"
-                    />
-                    <span className="text-[10px] text-muted-foreground mt-1 block text-center">{label}</span>
-                  </div>
-                ))}
-              </div>
-              {totalSeconds > 0 && totalSeconds < 10 && (
-                <p className="text-[11px] text-destructive mt-1.5">Minimum duration is 10 seconds</p>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border bg-background p-3 space-y-1">
-              <p className="text-xs text-card-foreground font-medium">Scrape until last known post</p>
-              {lastPostDate ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Will scrape until post from <span className="font-mono">{lastPostDate}</span> is found.
-                </p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">No previous posts found — will run for 24h max.</p>
-              )}
-            </div>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button onClick={handleStart} disabled={loading || !canStart} className="bg-success hover:bg-success/90 text-success-foreground">
-            <Play className="h-3.5 w-3.5 mr-1.5" />
-            {loading ? "Starting..." : "Start Scraper"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function UserMonitoring() {
   const navigate = useNavigate();
   const { users, isLoading, isError, addUser, updateUser, removeUser } = useMonitoredUsers();
@@ -385,63 +107,39 @@ export default function UserMonitoring() {
     queryFn: () => getAllPosts(),
   });
 
-  // Flagged posts (localStorage)
   const [flaggedPosts, setFlaggedPosts] = useState<FlaggedPost[]>(loadFlaggedPosts);
+  const [search, setSearch] = useState("");
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"date" | "rating">("date");
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [notesValue, setNotesValue] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [scrapeTarget, setScrapeTarget] = useState<MonitoredUser | null>(null);
 
-  const unflagPost = (id: string) => {
-    setFlaggedPosts((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      saveFlaggedPosts(next);
-      return next;
-    });
-    toast.success("Post unflagged");
-  };
-
-  // Seed dummy data if DB is empty
+  // Seed data
   useEffect(() => {
     if (!isLoading && !isError && users.length === 0 && !seededRef.current) {
       seededRef.current = true;
       (async () => {
         for (const seed of SEED_USERS) {
-          try { await addUser(seed); } catch { /* ignore duplicates */ }
+          try { await addUser(seed); } catch { /* ignore */ }
         }
       })();
     }
   }, [isLoading, isError, users.length]);
 
-  // Tab
-  const [activeTab, setActiveTab] = useState<"users" | "flagged">("users");
-
-  // Filters & sort
-  const [search, setSearch] = useState("");
-  const [platformFilter, setPlatformFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<"date" | "rating">("date");
-
-  // Inline notes editing
-  const [editingNotes, setEditingNotes] = useState<string | null>(null);
-  const [notesValue, setNotesValue] = useState("");
-
-  // Dialogs
-  const [addOpen, setAddOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<MonitoredUser | null>(null);
-  const [scrapeTarget, setScrapeTarget] = useState<MonitoredUser | null>(null);
-
   const postCountByUser = (username: string): number =>
     allPosts.filter((p) => cleanUsername(p.user ?? "").toLowerCase() === cleanUsername(username).toLowerCase()).length;
 
   const lastPostDateByUser = (username: string): string | null => {
-    const posts = allPosts
+    const sorted = allPosts
       .filter((p) => cleanUsername(p.user ?? "").toLowerCase() === cleanUsername(username).toLowerCase())
-      .sort((a, b) => {
-        const da = new Date(`${a.date} ${a.time}`).getTime();
-        const db = new Date(`${b.date} ${b.time}`).getTime();
-        return db - da;
-      });
-    return posts[0]?.date ?? null;
+      .sort((a, b) => new Date(`${b.date} ${b.time}`).getTime() - new Date(`${a.date} ${a.time}`).getTime());
+    return sorted[0]?.date ?? null;
   };
 
-  const filtered = users
+  const filteredUsers = users
     .filter((u) => {
       if (search && !cleanUsername(u.username).toLowerCase().includes(search.toLowerCase())) return false;
       if (platformFilter !== "all" && u.platform !== platformFilter) return false;
@@ -453,395 +151,443 @@ export default function UserMonitoring() {
       return new Date(b.addedAt ?? 0).getTime() - new Date(a.addedAt ?? 0).getTime();
     });
 
-  const suspected = users.filter((u) => u.status === "Suspected").length;
-  const tracked = users.filter((u) => u.status === "Tracked").length;
-  const avgRating = users.length
-    ? (users.reduce((sum, u) => sum + (u.harmfulRating ?? 0), 0) / users.length).toFixed(1)
-    : "—";
-
-  const handleRatingChange = async (user: MonitoredUser, rating: number) => {
-    try {
-      await updateUser(user.id!, { harmfulRating: rating });
-    } catch {
-      toast.error("Failed to update rating");
-    }
+  const stats = {
+    total: users.length,
+    suspected: users.filter(u => u.status === "Suspected").length,
+    tracked: users.filter(u => u.status === "Tracked").length,
+    avgRating: users.length ? (users.reduce((sum, u) => sum + (u.harmfulRating ?? 0), 0) / users.length).toFixed(1) : "0"
   };
 
   const handleNotesSave = async (user: MonitoredUser) => {
     try {
       await updateUser(user.id!, { notes: notesValue });
       setEditingNotes(null);
+      toast.success("Intelligence updated");
     } catch {
       toast.error("Failed to update notes");
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget?.id) return;
-    try {
-      await removeUser(deleteTarget.id);
-      toast.success(`${cleanUsername(deleteTarget.username)} removed`);
-    } catch {
-      toast.error("Failed to remove user");
-    } finally {
-      setDeleteTarget(null);
-    }
+  const unflagPost = (id: string) => {
+    const next = flaggedPosts.filter(p => p.id !== id);
+    saveFlaggedPosts(next);
+    setFlaggedPosts(next);
+    toast.success("Flag removed");
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground text-sm">Loading monitored users...</p>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-xl font-semibold text-foreground">User Monitoring</h1>
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          Failed to load monitored users. Make sure the backend is running.
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">User Monitoring</h1>
-            <p className="text-sm text-muted-foreground mt-1">Track and manage suspicious users</p>
-          </div>
-          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/15 text-primary">
-            {users.length} users
-          </span>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">User Intelligence</h1>
+          <p className="text-muted-foreground mt-1">High-priority targets and tracked identities.</p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <PlusCircle className="h-4 w-4 mr-2" /> Add User Manually
+        <Button onClick={() => setAddOpen(true)} className="gap-2">
+          <UserPlus className="h-4 w-4" /> Add Priority Target
         </Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard icon={Users} label="Total Monitored" value={users.length} iconClass="text-primary" />
-        <SummaryCard icon={AlertTriangle} label="Suspected" value={suspected} iconClass="text-destructive" />
-        <SummaryCard icon={ShieldAlert} label="Tracked" value={tracked} iconClass="text-yellow-400" />
-        <SummaryCard icon={Star} label="Avg Harmful Rating" value={avgRating} iconClass="text-amber-400" />
+        <MetricCard title="Monitored Entities" value={stats.total} icon={Users} color="text-primary" />
+        <MetricCard title="High Suspicion" value={stats.suspected} icon={AlertTriangle} color="text-destructive" />
+        <MetricCard title="Actively Tracked" value={stats.tracked} icon={ShieldAlert} color="text-yellow-500" />
+        <MetricCard title="Avg Harm Rating" value={stats.avgRating} icon={Star} color="text-amber-500" />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {(["users", "flagged"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
-              activeTab === tab
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab === "users" ? (
-              <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Monitored Users</span>
-            ) : (
-              <span className="flex items-center gap-1.5">
-                <Flag className="h-3.5 w-3.5" /> Flagged Posts
-                {flaggedPosts.length > 0 && (
-                  <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">
-                    {flaggedPosts.length}
-                  </span>
-                )}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0 mb-6">
+          <TabsTrigger value="users" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">
+            Identities
+          </TabsTrigger>
+          <TabsTrigger value="flagged" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">
+            Flagged Intelligence {flaggedPosts.length > 0 && <Badge variant="secondary" className="ml-2">{flaggedPosts.length}</Badge>}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* ── Users Tab ── */}
-      {activeTab === "users" && (
-        <>
+        <TabsContent value="users" className="space-y-6">
           {/* Filters */}
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-[180px]">
-              <label className="text-xs text-muted-foreground mb-1.5 block">Search by username</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search..."
-                  className="pl-9 bg-background"
-                />
+          <Card className="border-border/50 shadow-sm bg-accent/5">
+            <CardContent className="p-4 flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[240px] space-y-2">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Identity Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search by username..."
+                    className="pl-10 h-10 bg-background border-none shadow-inner"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="w-[150px]">
-              <label className="text-xs text-muted-foreground mb-1.5 block">Platform</label>
-              <Select value={platformFilter} onValueChange={setPlatformFilter}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Platforms</SelectItem>
-                  <SelectItem value="Instagram">Instagram</SelectItem>
-                  <SelectItem value="Twitter">Twitter</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-[140px]">
-              <label className="text-xs text-muted-foreground mb-1.5 block">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="Suspected">Suspected</SelectItem>
-                  <SelectItem value="Tracked">Tracked</SelectItem>
-                  <SelectItem value="Cleared">Cleared</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-[140px]">
-              <label className="text-xs text-muted-foreground mb-1.5 block">Sort by</label>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Date Added</SelectItem>
-                  <SelectItem value="rating">Harmful Rating</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div className="w-full sm:w-40 space-y-2">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Platform</Label>
+                <Select value={platformFilter} onValueChange={setPlatformFilter}>
+                  <SelectTrigger className="h-10 bg-background border-none shadow-inner"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Platforms</SelectItem>
+                    <SelectItem value="Instagram">Instagram</SelectItem>
+                    <SelectItem value="Twitter">Twitter</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full sm:w-40 space-y-2">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Risk Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-10 bg-background border-none shadow-inner"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risks</SelectItem>
+                    <SelectItem value="Suspected">Suspected</SelectItem>
+                    <SelectItem value="Tracked">Tracked</SelectItem>
+                    <SelectItem value="Cleared">Cleared</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full sm:w-40 space-y-2">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Sort By</Label>
+                <Select value={sortBy} onValueChange={v => setSortBy(v as any)}>
+                  <SelectTrigger className="h-10 bg-background border-none shadow-inner"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Date Added</SelectItem>
+                    <SelectItem value="rating">Harm Level</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Cards Grid */}
-          {filtered.length === 0 ? (
-            <div className="flex items-center justify-center h-40 rounded-lg border border-border text-muted-foreground text-sm">
-              No users match your filters.
+          {/* Grid */}
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-64 w-full" />)}
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground border rounded-xl border-dashed">
+              <Users className="h-12 w-12 opacity-10 mb-4" />
+              <p>No identities match the current intelligence filter.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filtered.map((user) => {
-                const postCount = postCountByUser(user.username);
-                const isEditingNotes = editingNotes === user.id;
-                const displayName = cleanUsername(user.username);
-
-                return (
-                  <div key={user.id} className="rounded-lg border border-border bg-card p-4 space-y-3 flex flex-col">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        <PlatformBadge platform={user.platform} />
-                        <StatusBadge status={user.status} />
-                        {user.addedFrom && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
-                            {user.addedFrom}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setDeleteTarget(user)}
-                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    {/* Username */}
-                    <p className="font-mono text-sm font-semibold text-card-foreground truncate">
-                      @{displayName}
-                    </p>
-
-                    {/* Harmful Rating */}
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Harmful Rating</p>
-                      <StarRating value={user.harmfulRating ?? 0} onChange={(v) => handleRatingChange(user, v)} />
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground mb-1">Notes</p>
-                      {isEditingNotes ? (
-                        <div className="space-y-1.5">
-                          <Textarea
-                            value={notesValue}
-                            onChange={(e) => setNotesValue(e.target.value)}
-                            className="bg-background resize-none text-xs"
-                            rows={2}
-                            autoFocus
-                          />
-                          <div className="flex gap-1.5">
-                            <Button size="sm" className="h-6 text-xs px-2" onClick={() => handleNotesSave(user)}>Save</Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setEditingNotes(null)}>Cancel</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p
-                          className="text-xs text-card-foreground cursor-pointer hover:text-primary transition-colors min-h-[1.5rem]"
-                          onClick={() => { setEditingNotes(user.id!); setNotesValue(user.notes ?? ""); }}
-                          title="Click to edit"
-                        >
-                          {user.notes || <span className="text-muted-foreground italic">Click to add notes</span>}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Post count + Date */}
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{postCount} post{postCount !== 1 ? "s" : ""} scraped</span>
-                      {user.addedAt && <span>{new Date(user.addedAt).toLocaleDateString()}</span>}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs h-8"
-                        onClick={() => navigate("/posts", { state: { search: displayName } })}
-                      >
-                        <Eye className="h-3.5 w-3.5 mr-1.5" /> View Posts
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 text-xs h-8 bg-success hover:bg-success/90 text-success-foreground"
-                        onClick={() => setScrapeTarget(user)}
-                      >
-                        <Play className="h-3.5 w-3.5 mr-1.5" /> Scrape
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredUsers.map(user => (
+                <UserCard
+                  key={user.id}
+                  user={user}
+                  postCount={postCountByUser(user.username)}
+                  onEditNotes={() => { setEditingNotes(user.id!); setNotesValue(user.notes ?? ""); }}
+                  isEditingNotes={editingNotes === user.id}
+                  notesValue={notesValue}
+                  setNotesValue={setNotesValue}
+                  onSaveNotes={() => handleNotesSave(user)}
+                  onCancelNotes={() => setEditingNotes(null)}
+                  onRatingChange={(v) => updateUser(user.id!, { harmfulRating: v })}
+                  onDelete={() => removeUser(user.id!)}
+                  onScrape={() => setScrapeTarget(user)}
+                  onViewPosts={() => navigate("/posts", { state: { search: cleanUsername(user.username) } })}
+                />
+              ))}
             </div>
           )}
-        </>
-      )}
+        </TabsContent>
 
-      {/* ── Flagged Posts Tab ── */}
-      {activeTab === "flagged" && (
-        <div className="space-y-4">
+        <TabsContent value="flagged">
           {flaggedPosts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 rounded-lg border border-border text-muted-foreground text-sm gap-2">
-              <Flag className="h-8 w-8 opacity-30" />
-              <p>No flagged posts yet.</p>
-              <p className="text-xs">Open a post and click <span className="font-medium text-foreground">Flag Post</span> to save it here.</p>
+            <div className="flex flex-col items-center justify-center py-32 text-muted-foreground border rounded-xl border-dashed">
+              <Flag className="h-12 w-12 opacity-10 mb-4" />
+              <p>No intelligence reports flagged for follow-up.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {flaggedPosts
-                .slice()
-                .sort((a, b) => new Date(b.flaggedAt).getTime() - new Date(a.flaggedAt).getTime())
-                .map((fp) => (
-                  <div key={fp.id} className="rounded-lg border border-border bg-card p-4 space-y-3 flex flex-col">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        <PlatformBadge platform={fp.platform} />
-                        {fp.source && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{fp.source}</span>
-                        )}
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400 flex items-center gap-1">
-                          <Flag className="h-3 w-3" /> Flagged
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => unflagPost(fp.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                        title="Remove flag"
-                      >
-                        <BookmarkX className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <p className="font-mono text-xs font-semibold text-primary">@{cleanUsername(fp.user)}</p>
-
-                    <p className="text-xs text-card-foreground leading-relaxed line-clamp-3">
-                      {fp.content || <span className="text-muted-foreground italic">No content</span>}
-                    </p>
-
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      {fp.date && <span>{fp.date} {fp.time ?? ""}</span>}
-                      <span>Flagged {new Date(fp.flaggedAt).toLocaleDateString()}</span>
-                    </div>
-
-                    <div className="flex gap-2 pt-1">
-                      {fp.url && (
-                        <Button size="sm" variant="outline" className="flex-1 text-xs h-8" asChild>
-                          <a href={fp.url} target="_blank" rel="noopener noreferrer">
-                            <Eye className="h-3.5 w-3.5 mr-1.5" /> Open Post
-                          </a>
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs h-8"
-                        onClick={() => navigate("/posts", { state: { search: cleanUsername(fp.user) } })}
-                      >
-                        View User Posts
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {flaggedPosts.map(post => (
+                <FlaggedPostCard key={post.id} post={post} onUnflag={() => unflagPost(post.id)} onViewUser={() => navigate("/posts", { state: { search: cleanUsername(post.user) } })} />
+              ))}
             </div>
           )}
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
-      {/* Add User Dialog */}
       <AddUserDialog open={addOpen} onOpenChange={setAddOpen} onAdd={addUser} existingUsers={users} />
 
-      {/* Scrape Dialog */}
       <ScrapeDialog
         user={scrapeTarget}
         lastPostDate={scrapeTarget ? lastPostDateByUser(scrapeTarget.username) : null}
         onClose={() => setScrapeTarget(null)}
       />
-
-      {/* Delete Confirm */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove from monitoring?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove{" "}
-              <span className="font-mono font-semibold">@{deleteTarget ? cleanUsername(deleteTarget.username) : ""}</span>{" "}
-              from the monitoring list.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
 
-// ── Summary Card ──────────────────────────────────────────────────────────────
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  iconClass,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number | string;
-  iconClass: string;
-}) {
+function MetricCard({ title, value, icon: Icon, color }: any) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
-      <div className={cn("p-2 rounded-md bg-muted", iconClass)}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-xl font-semibold text-card-foreground">{value}</p>
-      </div>
-    </div>
+    <Card className="shadow-sm border-border/50">
+      <CardContent className="p-6 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{title}</p>
+          <p className="text-3xl font-black">{value}</p>
+        </div>
+        <div className={cn("p-3 rounded-xl bg-accent/50", color)}>
+          <Icon className="h-6 w-6" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UserCard({ user, postCount, isEditingNotes, notesValue, setNotesValue, onSaveNotes, onCancelNotes, onEditNotes, onRatingChange, onDelete, onScrape, onViewPosts }: any) {
+  const displayName = cleanUsername(user.username);
+
+  return (
+    <Card className="group border-border/60 hover:border-primary/40 transition-all hover:shadow-md overflow-hidden bg-card/50 backdrop-blur-sm">
+      <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px] uppercase font-bold">{user.platform}</Badge>
+            <Badge className={cn("px-1.5 py-0 text-[10px] uppercase font-black", STATUS_BADGE_STYLES[user.status])}>{user.status}</Badge>
+          </div>
+          <CardTitle className="font-mono text-base font-bold text-primary">@{displayName}</CardTitle>
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogTitle>Remove Identity Track?</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure you want to stop monitoring @{displayName}? This will delete all associated tracking data.</AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abort</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Confirm Removal</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <div>
+          <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-2 block">Risk Level Assessment</Label>
+          <StarRating value={user.harmfulRating ?? 0} onChange={onRatingChange} />
+        </div>
+
+        <div className="min-h-[80px]">
+          <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-2 block">Intelligence Notes</Label>
+          {isEditingNotes ? (
+            <div className="space-y-2">
+              <Textarea value={notesValue} onChange={e => setNotesValue(e.target.value)} className="text-xs min-h-[60px]" autoFocus />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={onSaveNotes} className="h-7 text-[10px] px-3">Save Intelligence</Button>
+                <Button size="sm" variant="ghost" onClick={onCancelNotes} className="h-7 text-[10px] px-3">Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs leading-relaxed text-card-foreground cursor-pointer hover:bg-accent/30 p-2 rounded-md transition-colors border border-transparent hover:border-border/50" onClick={onEditNotes}>
+              {user.notes || <span className="text-muted-foreground italic">No surveillance notes recorded. Click to update.</span>}
+            </p>
+          )}
+        </div>
+
+        <Separator className="bg-border/40" />
+
+        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span className="flex items-center gap-1"><Activity className="h-3 w-3" /> {postCount} Signals Scraped</span>
+          <span>Added {new Date(user.addedAt).toLocaleDateString()}</span>
+        </div>
+      </CardContent>
+
+      <CardFooter className="bg-muted/30 p-3 gap-2">
+        <Button variant="outline" size="sm" className="flex-1 h-9 text-[11px] font-bold uppercase tracking-wide gap-2 bg-background shadow-sm" onClick={onViewPosts}>
+          <Eye className="h-3.5 w-3.5" /> View Signals
+        </Button>
+        <Button size="sm" className="flex-1 h-9 text-[11px] font-bold uppercase tracking-wide gap-2 bg-success hover:bg-success/90 text-success-foreground shadow-sm" onClick={onScrape}>
+          <Play className="h-3.5 w-3.5" /> Start Agent
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function FlaggedPostCard({ post, onUnflag, onViewUser }: any) {
+  return (
+    <Card className="bg-card/50 backdrop-blur-sm border-border/60 hover:shadow-md transition-all">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <Badge variant="outline" className="text-[10px] uppercase font-bold gap-1.5">
+            <span className={cn("h-1.5 w-1.5 rounded-full", post.platform === "Twitter" ? "bg-primary" : "bg-accent")} />
+            {post.platform}
+          </Badge>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={onUnflag}>
+            <BookmarkX className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="font-mono text-sm font-bold text-primary">@{cleanUsername(post.user)}</p>
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-4 bg-accent/20 p-3 rounded-lg italic">
+          "{post.content || "Media-only content"}"
+        </p>
+        <div className="flex items-center justify-between mt-4 text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+          <span>{post.date}</span>
+          <span>Flagged {new Date(post.flaggedAt).toLocaleDateString()}</span>
+        </div>
+      </CardContent>
+      <CardFooter className="p-3 gap-2">
+        {post.url && (
+          <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px] font-bold uppercase gap-1.5" asChild>
+            <a href={post.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3" /> Original</a>
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" className="flex-1 h-8 text-[10px] font-bold uppercase gap-1.5" onClick={onViewUser}>
+          <ListFilter className="h-3 w-3" /> Filter Signals
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function AddUserDialog({ open, onOpenChange, onAdd, existingUsers }: any) {
+  const [username, setUsername] = useState("");
+  const [platform, setPlatform] = useState<"Instagram" | "Twitter">("Instagram");
+  const [status, setStatus] = useState<"Suspected" | "Tracked" | "Cleared">("Suspected");
+  const [rating, setRating] = useState(1);
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const reset = () => { setUsername(""); setPlatform("Instagram"); setStatus("Suspected"); setRating(1); setNotes(""); };
+
+  const handleSubmit = async () => {
+    const cleaned = cleanUsername(username.trim());
+    if (!cleaned) return toast.error("Username required");
+    const isDuplicate = existingUsers.some((u: any) => cleanUsername(u.username).toLowerCase() === cleaned.toLowerCase() && u.platform === platform);
+    if (isDuplicate) return toast.error(`${cleaned} already tracked on ${platform}`);
+
+    setLoading(true);
+    try {
+      await onAdd({ username: cleaned, platform, status, addedFrom: "Manual", harmfulRating: rating, notes });
+      toast.success("Identity added to database");
+      reset();
+      onOpenChange(false);
+    } catch {
+      toast.error("Database error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Priority Identity</DialogTitle>
+          <DialogDescription>Input identity details for automated surveillance tracking.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5 py-4">
+          <div className="space-y-2">
+            <Label>Username / Handle</Label>
+            <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. shadow_stalker" className="h-10" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Platform</Label>
+              <Select value={platform} onValueChange={setPlatform as any}><SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="Instagram">Instagram</SelectItem><SelectItem value="Twitter">Twitter</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Initial Risk</Label>
+              <Select value={status} onValueChange={setStatus as any}><SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="Suspected">Suspected</SelectItem><SelectItem value="Tracked">Tracked</SelectItem><SelectItem value="Cleared">Cleared</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Risk Rating Assessment</Label>
+            <div className="p-3 bg-accent/20 rounded-md inline-block"><StarRating value={rating} onChange={setRating} /></div>
+          </div>
+          <div className="space-y-2">
+            <Label>Intelligence Notes</Label>
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Surveillance rationale..." className="min-h-[80px]" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Initiate Tracking"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ScrapeDialog({ user, lastPostDate, onClose }: any) {
+  const [mode, setMode] = useState<"duration" | "until_last">("duration");
+  const [hours, setHours] = useState("0");
+  const [minutes, setMinutes] = useState("10");
+  const [seconds, setSeconds] = useState("0");
+  const [loading, setLoading] = useState(false);
+
+  if (!user) return null;
+  const totalSeconds = (parseInt(hours) || 0) * 3600 + (parseInt(minutes) || 0) * 60 + (parseInt(seconds) || 0);
+
+  const handleStart = async () => {
+    setLoading(true);
+    try {
+      const payload: any = {
+        instaExplore: false, twitterHome: false, instaKeywords: [], twitterKeywords: [],
+        instaProfiles: user.platform === "Instagram" ? [cleanUsername(user.username)] : [],
+        twitterProfiles: user.platform === "Twitter" ? [cleanUsername(user.username)] : [],
+        duration: mode === "duration" ? totalSeconds : 86400,
+      };
+      if (mode === "until_last" && lastPostDate) { payload.stopAtDate = lastPostDate; payload.untilLastPost = true; }
+      const res = await fetch(`${API_BASE}/scraper/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error();
+      toast.success(`Agent deployed for @${cleanUsername(user.username)}`);
+      onClose();
+    } catch {
+      toast.error("Agent deployment failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!user} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Deploy Agent: @{cleanUsername(user.username)}</DialogTitle>
+          <DialogDescription>Specify tracking parameters for this mission.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant={mode === "duration" ? "default" : "outline"} onClick={() => setMode("duration")} className="flex-col h-16 gap-1.5 py-2">
+              <Clock className="h-4 w-4" /><span className="text-[10px] uppercase font-bold">Timed Mission</span>
+            </Button>
+            <Button variant={mode === "until_last" ? "default" : "outline"} onClick={() => setMode("until_last")} className="flex-col h-16 gap-1.5 py-2">
+              <RotateCcw className="h-4 w-4" /><span className="text-[10px] uppercase font-bold">Full Sync</span>
+            </Button>
+          </div>
+
+          {mode === "duration" ? (
+            <div className="grid grid-cols-3 gap-2">
+              {[{ l: "HRS", v: hours, s: setHours }, { l: "MIN", v: minutes, s: setMinutes }, { l: "SEC", v: seconds, s: setSeconds }].map(f => (
+                <div key={f.l} className="space-y-1">
+                  <Input value={f.v} onChange={e => /^\d*$/.test(e.target.value) && f.s(e.target.value)} className="text-center font-mono h-10" />
+                  <p className="text-[9px] text-center font-bold text-muted-foreground">{f.l}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-accent/20 p-4 rounded-lg border border-dashed border-border/50 text-center">
+              <p className="text-xs font-medium">Synchronizing signals until last capture</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{lastPostDate ? `Last signal: ${lastPostDate}` : "No previous signal data found."}</p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Abort</Button>
+          <Button onClick={handleStart} disabled={loading || (mode === "duration" && totalSeconds < 10)} className="bg-success hover:bg-success/90 text-success-foreground gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} Initiate
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

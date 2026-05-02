@@ -1,151 +1,45 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, Check, ChevronDown, ChevronUp, X, Save, Play, RotateCcw } from "lucide-react";
+import { Loader2, Check, ChevronDown, ChevronUp, X, Save, Play, RotateCcw, Search, Sparkles, AlertCircle, Info, ShieldAlert, History, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScraperContext } from "@/context/ScraperContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 const OSINT_KEY = "osint_investigations";
 
-interface Question {
-  question: string;
-  answer: string;
-}
+interface Question { question: string; answer: string; }
+interface ResearchStep { step: number; title: string; description: string; platform: string; keywords: string[]; priority: "High" | "Medium" | "Low"; }
+interface Plan { investigationTitle: string; summary: string; threatLevel: "Low" | "Medium" | "High" | "Critical"; platforms: string[]; twitterKeywords: string[]; instagramKeywords: string[]; redditKeywords: string[]; webSearchKeywords: string[]; targetProfiles: { twitter: string[]; instagram: string[] }; researchSteps: ResearchStep[]; expectedFindings: string; risks: string; }
+interface SavedInvestigation { id: string; title: string; query: string; threatLevel: string; plan: Plan; savedAt: string; }
 
-interface ResearchStep {
-  step: number;
-  title: string;
-  description: string;
-  platform: string;
-  keywords: string[];
-  priority: "High" | "Medium" | "Low";
-}
+const EXAMPLES = ["Cyber espionage campaigns", "Disinformation networks in elections", "Drug trafficking logistics", "Financial fraud syndicates"];
 
-interface Plan {
-  investigationTitle: string;
-  summary: string;
-  threatLevel: "Low" | "Medium" | "High" | "Critical";
-  platforms: string[];
-  twitterKeywords: string[];
-  instagramKeywords: string[];
-  redditKeywords: string[];
-  webSearchKeywords: string[];
-  targetProfiles: { twitter: string[]; instagram: string[] };
-  researchSteps: ResearchStep[];
-  expectedFindings: string;
-  risks: string;
-}
-
-interface SavedInvestigation {
-  id: string;
-  title: string;
-  query: string;
-  threatLevel: string;
-  plan: Plan;
-  savedAt: string;
-}
-
-const EXAMPLES = [
-  "Iran nuclear activity",
-  "Drug trafficking Venezuela",
-  "Cybercrime groups telegram",
-];
-
-const THREAT_CLS: Record<string, string> = {
-  Low: "bg-green-500/15 text-green-400 border-green-500/30",
-  Medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  High: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  Critical: "bg-red-500/15 text-red-400 border-red-500/30 animate-pulse",
+const THREAT_BADGE_STYLES: Record<string, string> = {
+  Low: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  Medium: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  High: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+  Critical: "bg-destructive/10 text-destructive border-destructive/20 animate-pulse",
 };
 
-const PLAT_CLS: Record<string, string> = {
-  Twitter: "bg-sky-500/15 text-sky-400",
-  Instagram: "bg-pink-500/15 text-pink-400",
-  Reddit: "bg-orange-500/15 text-orange-400",
-  Web: "bg-violet-500/15 text-violet-400",
-  "Web Search": "bg-violet-500/15 text-violet-400",
+const PLATFORM_COLORS: Record<string, string> = {
+  Twitter: "bg-sky-500/10 text-sky-600",
+  Instagram: "bg-pink-500/10 text-pink-600",
+  Reddit: "bg-orange-500/10 text-orange-600",
+  Web: "bg-indigo-500/10 text-indigo-600",
 };
-
-const PRIO_CLS: Record<string, string> = {
-  High: "bg-orange-500/15 text-orange-400",
-  Medium: "bg-yellow-500/15 text-yellow-400",
-  Low: "bg-blue-500/15 text-blue-400",
-};
-
-function ThreatBadge({ level }: { level: string }) {
-  return (
-    <span className={cn(
-      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border",
-      THREAT_CLS[level] ?? "bg-muted text-muted-foreground border-border"
-    )}>
-      {level}
-    </span>
-  );
-}
-
-function PlatformBadge({ platform }: { platform: string }) {
-  return (
-    <span className={cn(
-      "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-      PLAT_CLS[platform] ?? "bg-muted text-muted-foreground"
-    )}>
-      {platform}
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  return (
-    <span className={cn(
-      "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-      PRIO_CLS[priority] ?? "bg-muted text-muted-foreground"
-    )}>
-      {priority}
-    </span>
-  );
-}
-
-function Stepper({ current }: { current: 1 | 2 | 3 }) {
-  const steps = [
-    { n: 1 as const, label: "Define Query" },
-    { n: 2 as const, label: "Clarify" },
-    { n: 3 as const, label: "Research Plan" },
-  ];
-  return (
-    <div className="flex items-center justify-center">
-      {steps.map((s, i) => (
-        <React.Fragment key={s.n}>
-          <div className="flex flex-col items-center gap-1.5">
-            <div className={cn(
-              "h-8 w-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all",
-              current > s.n
-                ? "bg-primary text-primary-foreground"
-                : current === s.n
-                ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                : "bg-muted text-muted-foreground"
-            )}>
-              {current > s.n ? <Check className="h-4 w-4" /> : s.n}
-            </div>
-            <span className={cn(
-              "text-xs font-medium whitespace-nowrap",
-              current === s.n ? "text-primary" : current > s.n ? "text-foreground" : "text-muted-foreground"
-            )}>
-              {s.label}
-            </span>
-          </div>
-          {i < 2 && (
-            <div className={cn(
-              "h-[2px] w-16 mx-3 mb-5 transition-colors",
-              current > i + 1 ? "bg-primary" : "bg-border"
-            )} />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
 
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(GEMINI_URL, {
@@ -153,8 +47,8 @@ async function callGemini(prompt: string): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
-  if (res.status === 429) throw new Error("Rate limited. Please wait a moment and try again.");
-  if (!res.ok) throw new Error("Gemini API error. Check your API key and try again.");
+  if (res.status === 429) throw new Error("Rate limited. Please wait.");
+  if (!res.ok) throw new Error("Gemini API error.");
   const data = await res.json();
   const raw: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   return raw.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
@@ -190,118 +84,42 @@ export default function Investigate() {
   }, []);
 
   async function beginInvestigation() {
+    if (!query.trim()) return;
     setLoading(true);
     setErr(null);
     try {
-      const raw = await callGemini(
-        `You are an expert OSINT analyst. The user wants to investigate the following topic: "${query}"
-
-Generate exactly 5 clarifying questions to better understand the scope, target, and focus of this investigation. These questions should help identify the exact area for research and monitoring across social media platforms (Instagram, Twitter, Reddit), web search, and open sources.
-
-Return ONLY a valid JSON array, no markdown, no explanation:
-[
-  {"question": "Question text here", "answer": ""},
-  ...
-]`
-      );
-      const parsed: Question[] = JSON.parse(raw);
-      setQuestions(parsed.map(q => ({ question: q.question, answer: "" })));
+      const raw = await callGemini(`OSINT analyst task: Generate 5 clarifying questions for investigation on "${query}". Return ONLY JSON array of {"question": string, "answer": ""}.`);
+      setQuestions(JSON.parse(raw));
       setStep(2);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to generate questions.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (e: any) { setErr(e.message); } finally { setLoading(false); }
   }
 
   async function generatePlan() {
     setLoading(true);
     setErr(null);
     try {
-      const raw = await callGemini(
-        `You are an expert OSINT analyst. Generate a detailed research and monitoring plan based on the following:
-
-Initial Query: "${query}"
-
-Clarification Q&A:
-${questions.map(q => `Q: ${q.question}\nA: ${q.answer || "Not specified"}`).join("\n\n")}
-
-Generate a comprehensive OSINT research plan. Return ONLY a valid JSON object:
-{
-  "investigationTitle": "Short title for this investigation",
-  "summary": "2-3 sentence overview of what will be investigated and why",
-  "threatLevel": "Low",
-  "platforms": ["Twitter", "Instagram", "Reddit", "Web"],
-  "twitterKeywords": ["keyword1", "keyword2"],
-  "instagramKeywords": ["keyword1", "keyword2"],
-  "redditKeywords": ["keyword1", "keyword2"],
-  "webSearchKeywords": ["keyword1", "keyword2"],
-  "targetProfiles": {
-    "twitter": ["handle1"],
-    "instagram": ["username1"]
-  },
-  "researchSteps": [
-    {
-      "step": 1,
-      "title": "Step title",
-      "description": "What to do and why",
-      "platform": "Twitter",
-      "keywords": ["kw1"],
-      "priority": "High"
-    }
-  ],
-  "expectedFindings": "What kind of information this investigation is expected to surface",
-  "risks": "Potential risks or limitations of this investigation"
-}`
-      );
+      const prompt = `Generate a detailed OSINT research plan JSON for query: "${query}" with these answers: ${JSON.stringify(questions)}. Include investigationTitle, summary, threatLevel, twitterKeywords, instagramKeywords, redditKeywords, webSearchKeywords, targetProfiles: {twitter: [], instagram: []}, researchSteps: [{step, title, description, platform, keywords, priority}], expectedFindings, risks.`;
+      const raw = await callGemini(prompt);
       const p: Plan = JSON.parse(raw);
       setPlan(p);
       setTwKws([...(p.twitterKeywords ?? [])]);
       setIgKws([...(p.instagramKeywords ?? [])]);
       setRdKws([...(p.redditKeywords ?? [])]);
       setWebKws([...(p.webSearchKeywords ?? [])]);
-      setSelectedSteps(new Set(
-        (p.researchSteps ?? []).filter(s => s.priority === "High").map(s => s.step)
-      ));
+      setSelectedSteps(new Set((p.researchSteps ?? []).filter(s => s.priority === "High").map(s => s.step)));
       setSelTwProfiles(new Set(p.targetProfiles?.twitter ?? []));
       setSelIgProfiles(new Set(p.targetProfiles?.instagram ?? []));
       setStep(3);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to generate research plan.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (e: any) { setErr(e.message); } finally { setLoading(false); }
   }
 
   function saveInvestigation() {
     if (!plan) return;
-    const inv: SavedInvestigation = {
-      id: Date.now().toString(),
-      title: plan.investigationTitle,
-      query,
-      threatLevel: plan.threatLevel,
-      plan,
-      savedAt: new Date().toISOString(),
-    };
+    const inv: SavedInvestigation = { id: Date.now().toString(), title: plan.investigationTitle, query, threatLevel: plan.threatLevel, plan, savedAt: new Date().toISOString() };
     const next = [inv, ...saved];
     setSaved(next);
-    try { localStorage.setItem(OSINT_KEY, JSON.stringify(next)); } catch {}
-    toast.success("Investigation saved.");
-  }
-
-  function loadInvestigation(inv: SavedInvestigation) {
-    setQuery(inv.query);
-    setPlan(inv.plan);
-    setTwKws([...(inv.plan.twitterKeywords ?? [])]);
-    setIgKws([...(inv.plan.instagramKeywords ?? [])]);
-    setRdKws([...(inv.plan.redditKeywords ?? [])]);
-    setWebKws([...(inv.plan.webSearchKeywords ?? [])]);
-    setSelectedSteps(new Set(
-      (inv.plan.researchSteps ?? []).filter(s => s.priority === "High").map(s => s.step)
-    ));
-    setSelTwProfiles(new Set(inv.plan.targetProfiles?.twitter ?? []));
-    setSelIgProfiles(new Set(inv.plan.targetProfiles?.instagram ?? []));
-    setStep(3);
+    localStorage.setItem(OSINT_KEY, JSON.stringify(next));
+    toast.success("Intelligence profile archived");
   }
 
   function executeInvestigation() {
@@ -311,437 +129,266 @@ Generate a comprehensive OSINT research plan. Return ONLY a valid JSON object:
     webKws.forEach(kw => addWebSearchKeyword(kw));
     selTwProfiles.forEach(p => addTwitterProfile(p));
     selIgProfiles.forEach(p => addInstaProfile(p));
-    toast.success("Investigation loaded into Scraper Control. Review and start when ready.");
+    toast.success("Operational parameters synchronized");
     navigate("/scraper");
   }
 
-  function reset() {
-    setStep(1);
-    setQuery("");
-    setQuestions([]);
-    setPlan(null);
-    setErr(null);
-  }
-
-  const answeredCnt = questions.filter(q => q.answer.trim() && q.answer !== "Not specified").length;
-  const totalKws = twKws.length + igKws.length + rdKws.length + webKws.length;
-  const totalProfiles = selTwProfiles.size + selIgProfiles.size;
-  const activePlatforms = [
-    twKws.length > 0 || selTwProfiles.size > 0,
-    igKws.length > 0 || selIgProfiles.size > 0,
-    rdKws.length > 0,
-    webKws.length > 0,
-  ].filter(Boolean).length;
-
   return (
-    <div className="space-y-6 pb-24">
-      <div>
-        <h1 className="text-xl font-semibold">OSINT Investigation</h1>
-        <p className="text-sm text-muted-foreground">AI-guided open-source intelligence workflow</p>
+    <div className="space-y-8 max-w-5xl mx-auto pb-32">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Investigative AI</h1>
+          <p className="text-muted-foreground mt-1 text-sm uppercase tracking-widest font-semibold opacity-70">Strategic Intelligence Workflow</p>
+        </div>
+        {saved.length > 0 && (
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowPast(!showPast)}>
+            <History className="h-4 w-4" /> Archives
+          </Button>
+        )}
       </div>
 
-      <Stepper current={step} />
-
-      {/* ── STEP 1 ── */}
-      {step === 1 && (
-        <div className="max-w-2xl mx-auto">
-          <div className="rounded-lg border border-border bg-card p-6 space-y-5">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Define Your Investigation</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Describe the topic, entity, or event you want to investigate
-              </p>
+      {/* Stepper */}
+      <div className="flex items-center justify-between max-w-2xl mx-auto px-4">
+        {[1, 2, 3].map((s) => (
+          <React.Fragment key={s}>
+            <div className="flex flex-col items-center gap-2">
+              <div className={cn(
+                "h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all",
+                step === s ? "bg-primary border-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.3)] scale-110" :
+                step > s ? "bg-success border-success text-success-foreground" :
+                "bg-background border-muted text-muted-foreground"
+              )}>
+                {step > s ? <Check className="h-5 w-5" /> : s}
+              </div>
+              <span className={cn("text-[10px] font-black uppercase tracking-wider", step === s ? "text-primary" : "text-muted-foreground")}>
+                {s === 1 ? "Initialization" : s === 2 ? "Intelligence" : "Strategic Plan"}
+              </span>
             </div>
-            <textarea
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Describe what you want to investigate..."
-              rows={5}
-              className="w-full bg-background border border-border rounded-md p-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+            {s < 3 && <div className={cn("h-[1px] flex-1 mx-2", step > s ? "bg-success" : "bg-muted")} />}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Step 1: Initialization */}
+      {step === 1 && (
+        <Card className="max-w-2xl mx-auto border-border/50 shadow-xl overflow-hidden">
+          <CardHeader className="bg-accent/10 border-b">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Define Investigation
+            </CardTitle>
+            <CardDescription>Input your surveillance target or investigation focus.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+            <Textarea 
+              value={query} 
+              onChange={e => setQuery(e.target.value)} 
+              placeholder="e.g. Analysis of geopolitical influence operations in Southeast Asia..." 
+              className="min-h-[160px] text-base bg-background/50 border-border/40 focus:ring-primary shadow-inner"
             />
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">Quick examples:</p>
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Strategic Templates</p>
               <div className="flex flex-wrap gap-2">
                 {EXAMPLES.map(ex => (
-                  <button
-                    key={ex}
-                    onClick={() => setQuery(ex)}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium bg-accent text-foreground hover:bg-accent/80 border border-border transition-colors"
-                  >
+                  <Badge key={ex} variant="secondary" className="cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors px-3 py-1" onClick={() => setQuery(ex)}>
                     {ex}
-                  </button>
+                  </Badge>
                 ))}
               </div>
             </div>
-            {err && <p className="text-xs text-destructive">{err}</p>}
-            <button
-              onClick={beginInvestigation}
-              disabled={!query.trim() || loading}
-              className="w-full py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              {loading
-                ? <><Loader2 className="h-4 w-4 animate-spin" />Analyzing query...</>
-                : "Begin Investigation"}
-            </button>
-          </div>
-        </div>
+          </CardContent>
+          <CardFooter className="bg-accent/5 border-t py-4">
+            <Button onClick={beginInvestigation} disabled={!query.trim() || loading} className="w-full h-12 text-base font-bold gap-2">
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Search className="h-5 w-5" /> Initiate Intelligence Sweep</>}
+            </Button>
+          </CardFooter>
+        </Card>
       )}
 
-      {/* ── STEP 2 ── */}
+      {/* Step 2: Clarification */}
       {step === 2 && (
-        <div className="max-w-2xl mx-auto space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Clarify Your Investigation</h2>
-              <p className="text-sm text-muted-foreground">Answer questions to focus the research plan</p>
-            </div>
-            <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-              {answeredCnt} / {questions.length} answered
-            </span>
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="flex items-center justify-between mb-2 px-2">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Intelligence Gathering</h2>
+            <Badge variant="outline" className="font-mono">{questions.filter(q => q.answer).length} / {questions.length} COMPLETE</Badge>
           </div>
-
-          <div className="space-y-3">
-            {questions.map((q, i) => {
-              const skipped = q.answer === "Not specified";
-              return (
-                <div key={i} className={cn(
-                  "rounded-lg border bg-card p-4 space-y-3 transition-colors",
-                  skipped ? "border-border/50 opacity-60" : "border-border"
-                )}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2.5">
-                      <span className={cn(
-                        "flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5",
-                        skipped ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"
-                      )}>
-                        {i + 1}
-                      </span>
-                      <p className="text-sm font-medium text-foreground">{q.question}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const upd = [...questions];
-                        upd[i] = { ...upd[i], answer: skipped ? "" : "Not specified" };
-                        setQuestions(upd);
-                      }}
-                      className="flex-shrink-0 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded border border-border transition-colors"
-                    >
-                      {skipped ? "Unskip" : "Skip"}
-                    </button>
+          <div className="space-y-4">
+            {questions.map((q, i) => (
+              <Card key={i} className={cn("transition-all border-l-4", q.answer ? "border-l-success" : "border-l-primary/40")}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start gap-3">
+                    <span className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span>
+                    <CardTitle className="text-sm font-semibold leading-relaxed">{q.question}</CardTitle>
                   </div>
-                  {!skipped ? (
-                    <input
-                      value={q.answer}
-                      onChange={e => {
-                        const upd = [...questions];
-                        upd[i] = { ...upd[i], answer: e.target.value };
-                        setQuestions(upd);
-                      }}
-                      placeholder="Your answer..."
-                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic pl-8">Will use "Not specified"</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {err && <p className="text-xs text-destructive">{err}</p>}
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => { setStep(1); setErr(null); }}
-              className="px-4 py-2.5 rounded-md text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              Back
-            </button>
-            <button
-              onClick={generatePlan}
-              disabled={loading}
-              className="flex-1 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              {loading
-                ? <><Loader2 className="h-4 w-4 animate-spin" />Generating plan...</>
-                : "Generate Research Plan"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── STEP 3 ── */}
-      {step === 3 && plan && (
-        <div className="space-y-6">
-          {/* Header card */}
-          <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2">
-                <h2 className="text-xl font-bold text-foreground">{plan.investigationTitle}</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">{plan.summary}</p>
-              </div>
-              <button
-                onClick={saveInvestigation}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <Save className="h-4 w-4" />Save
-              </button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground">Threat:</span>
-              <ThreatBadge level={plan.threatLevel} />
-              <span className="text-xs text-muted-foreground ml-2">Platforms:</span>
-              {(plan.platforms ?? []).map(p => <PlatformBadge key={p} platform={p} />)}
-            </div>
-          </div>
-
-          {/* Research steps */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-              Research Steps
-            </h3>
-            {(plan.researchSteps ?? []).map(s => (
-              <div key={s.step} className={cn(
-                "rounded-lg border bg-card p-4 space-y-2.5 transition-colors",
-                selectedSteps.has(s.step) ? "border-primary/40 bg-primary/[0.02]" : "border-border"
-              )}>
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedSteps.has(s.step)}
+                </CardHeader>
+                <CardContent>
+                  <Input 
+                    value={q.answer} 
                     onChange={e => {
-                      const nxt = new Set(selectedSteps);
-                      e.target.checked ? nxt.add(s.step) : nxt.delete(s.step);
-                      setSelectedSteps(nxt);
-                    }}
-                    className="mt-1 h-4 w-4 cursor-pointer accent-primary flex-shrink-0"
+                      const upd = [...questions];
+                      upd[i].answer = e.target.value;
+                      setQuestions(upd);
+                    }} 
+                    placeholder="Provide details..." 
+                    className="bg-accent/10 border-none shadow-inner h-10"
                   />
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-muted-foreground">STEP {s.step}</span>
-                      <span className="text-sm font-semibold text-foreground">{s.title}</span>
-                      <PlatformBadge platform={s.platform} />
-                      <PriorityBadge priority={s.priority} />
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{s.description}</p>
-                    {(s.keywords ?? []).length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {s.keywords.map(kw => (
-                          <span key={kw} className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-xs">
-                            {kw}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
-
-          {/* Keywords */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-              Keywords
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { platform: "Twitter", kws: twKws, setKws: setTwKws, orig: plan.twitterKeywords ?? [] },
-                { platform: "Instagram", kws: igKws, setKws: setIgKws, orig: plan.instagramKeywords ?? [] },
-                { platform: "Reddit", kws: rdKws, setKws: setRdKws, orig: plan.redditKeywords ?? [] },
-                { platform: "Web", kws: webKws, setKws: setWebKws, orig: plan.webSearchKeywords ?? [] },
-              ].map(col => (
-                <div key={col.platform} className="rounded-lg border border-border bg-card p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <PlatformBadge platform={col.platform} />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => col.setKws([...col.orig])}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        All
-                      </button>
-                      <span className="text-muted-foreground/40 text-xs">|</span>
-                      <button
-                        onClick={() => col.setKws([])}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        None
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 min-h-[40px] content-start">
-                    {col.kws.length === 0 ? (
-                      <span className="text-xs text-muted-foreground italic">None selected</span>
-                    ) : (
-                      col.kws.map(kw => (
-                        <span
-                          key={kw}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-xs text-foreground"
-                        >
-                          {kw}
-                          <button
-                            onClick={() => col.setKws(col.kws.filter(k => k !== kw))}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Target profiles */}
-          {((plan.targetProfiles?.twitter?.length ?? 0) > 0 ||
-            (plan.targetProfiles?.instagram?.length ?? 0) > 0) && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                Target Profiles
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(plan.targetProfiles?.twitter ?? []).length > 0 && (
-                  <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-                    <PlatformBadge platform="Twitter" />
-                    <div className="space-y-1.5">
-                      {plan.targetProfiles.twitter.map(handle => (
-                        <label key={handle} className="flex items-center gap-2 cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            checked={selTwProfiles.has(handle)}
-                            onChange={e => {
-                              const nxt = new Set(selTwProfiles);
-                              e.target.checked ? nxt.add(handle) : nxt.delete(handle);
-                              setSelTwProfiles(nxt);
-                            }}
-                            className="h-4 w-4 cursor-pointer accent-primary"
-                          />
-                          <span className="text-sm text-foreground group-hover:text-primary transition-colors">
-                            @{handle}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {(plan.targetProfiles?.instagram ?? []).length > 0 && (
-                  <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-                    <PlatformBadge platform="Instagram" />
-                    <div className="space-y-1.5">
-                      {plan.targetProfiles.instagram.map(username => (
-                        <label key={username} className="flex items-center gap-2 cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            checked={selIgProfiles.has(username)}
-                            onChange={e => {
-                              const nxt = new Set(selIgProfiles);
-                              e.target.checked ? nxt.add(username) : nxt.delete(username);
-                              setSelIgProfiles(nxt);
-                            }}
-                            className="h-4 w-4 cursor-pointer accent-primary"
-                          />
-                          <span className="text-sm text-foreground group-hover:text-primary transition-colors">
-                            @{username}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Expected findings & risks */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Expected Findings
-              </h4>
-              <p className="text-sm text-foreground leading-relaxed">{plan.expectedFindings}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Risks & Limitations
-              </h4>
-              <p className="text-sm text-foreground leading-relaxed">{plan.risks}</p>
-            </div>
+          <div className="flex gap-4">
+            <Button variant="ghost" onClick={() => setStep(1)} className="px-8">Back</Button>
+            <Button onClick={generatePlan} disabled={loading} className="flex-1 h-12 text-base font-bold gap-2">
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><ArrowRight className="h-5 w-5" /> Formulate Strategic Plan</>}
+            </Button>
           </div>
         </div>
       )}
 
-      {/* ── PAST INVESTIGATIONS ── */}
-      {saved.length > 0 && (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <button
-            onClick={() => setShowPast(s => !s)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/30 transition-colors"
-          >
-            <span>Past Investigations ({saved.length})</span>
-            {showPast ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-          {showPast && (
-            <div className="border-t border-border p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {saved.map(inv => (
-                <div
-                  key={inv.id}
-                  className="rounded-md border border-border bg-background p-3 space-y-2 hover:border-primary/40 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground line-clamp-1 flex-1">
-                      {inv.title}
-                    </p>
-                    <ThreatBadge level={inv.threatLevel} />
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{inv.query}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(inv.savedAt).toLocaleDateString()}
-                    </span>
-                    <button
-                      onClick={() => loadInvestigation(inv)}
-                      className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                    >
-                      Load →
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── STICKY ACTION BAR (Step 3 only) ── */}
+      {/* Step 3: Plan */}
       {step === 3 && plan && (
-        <div className="sticky bottom-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-card/95 backdrop-blur-sm border-t border-border">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">{totalKws}</span> keywords and{" "}
-              <span className="font-semibold text-foreground">{totalProfiles}</span> profiles selected
-              across{" "}
-              <span className="font-semibold text-foreground">{activePlatforms}</span> platforms
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={reset}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                New Investigation
-              </button>
-              <button
-                onClick={executeInvestigation}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                <Play className="h-3.5 w-3.5" />
-                Execute Investigation
-              </button>
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <Card className="border-primary/20 shadow-2xl">
+            <CardHeader className="bg-primary/5 border-b pb-6">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <Badge className={cn("font-black uppercase text-[10px] px-2 py-0.5", THREAT_BADGE_STYLES[plan.threatLevel])}>
+                    {plan.threatLevel} THREAT LEVEL
+                  </Badge>
+                  <CardTitle className="text-3xl font-black text-foreground">{plan.investigationTitle}</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={saveInvestigation} className="gap-2 bg-background">
+                  <Save className="h-4 w-4" /> Archive Profile
+                </Button>
+              </div>
+              <CardDescription className="text-base text-foreground/70 leading-relaxed mt-4">{plan.summary}</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
+              {/* Steps */}
+              <div className="space-y-6">
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Operational Phases</h3>
+                <div className="space-y-4">
+                  {plan.researchSteps.map(s => (
+                    <div key={s.step} className={cn("flex gap-4 p-4 rounded-xl border transition-all", selectedSteps.has(s.step) ? "bg-primary/[0.03] border-primary/30 shadow-sm" : "bg-accent/5 border-border/50 opacity-60")}>
+                      <Checkbox 
+                        checked={selectedSteps.has(s.step)} 
+                        onCheckedChange={checked => {
+                          const nxt = new Set(selectedSteps);
+                          checked ? nxt.add(s.step) : nxt.delete(s.step);
+                          setSelectedSteps(nxt);
+                        }} 
+                        className="mt-1"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-black bg-muted px-1.5 py-0.5 rounded">PHASE {s.step}</span>
+                          <span className="text-sm font-bold">{s.title}</span>
+                          <Badge variant="secondary" className={cn("text-[9px] uppercase font-black", PLATFORM_COLORS[s.platform])}>{s.platform}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{s.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Parameters */}
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-4">Target Parameters</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { p: "Twitter", k: twKws, sk: setTwKws },
+                      { p: "Instagram", k: igKws, sk: setIgKws },
+                      { p: "Reddit", k: rdKws, sk: setRdKws },
+                      { p: "Web", k: webKws, sk: setWebKws }
+                    ].map(col => (
+                      <div key={col.p} className="p-4 rounded-xl bg-accent/10 border border-border/40">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className={cn("text-[10px] font-black uppercase tracking-wider", PLATFORM_COLORS[col.p])}>{col.p}</span>
+                          <Badge variant="outline" className="text-[9px]">{col.k.length}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {col.k.map(kw => (
+                            <Badge key={kw} variant="secondary" className="text-[10px] font-medium bg-background border-border/40 group py-0.5 pr-1">
+                              {kw}
+                              <X className="h-2.5 w-2.5 ml-1 cursor-pointer hover:text-destructive transition-colors" onClick={() => col.sk(col.k.filter(k => k !== kw))} />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/20">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-emerald-600 mb-2">Expected Yield</h4>
+                    <p className="text-xs leading-relaxed text-emerald-950 dark:text-emerald-200">{plan.expectedFindings}</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-destructive/[0.03] border border-destructive/20">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-destructive mb-2">Operational Risks</h4>
+                    <p className="text-xs leading-relaxed text-destructive/90">{plan.risks}</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="bg-primary/5 border-t p-6">
+              <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="flex gap-4">
+                  <div className="text-center">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">Signals</p>
+                    <p className="text-xl font-bold">{twKws.length + igKws.length + rdKws.length + webKws.length}</p>
+                  </div>
+                  <Separator orientation="vertical" className="h-8" />
+                  <div className="text-center">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">Identities</p>
+                    <p className="text-xl font-bold">{selTwProfiles.size + selIgProfiles.size}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <Button variant="outline" onClick={() => setStep(1)} className="gap-2 h-11 px-6">
+                    <RotateCcw className="h-4 w-4" /> New Task
+                  </Button>
+                  <Button onClick={executeInvestigation} className="flex-1 sm:flex-none h-11 px-10 text-base font-bold gap-2 shadow-lg">
+                    <Play className="h-4 w-4 fill-current" /> Deploy Strategic Agents
+                  </Button>
+                </div>
+              </div>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
+
+      {/* Archives Section */}
+      {showPast && saved.length > 0 && (
+        <div className="animate-in slide-in-from-bottom-5 duration-300">
+          <Separator className="my-8" />
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            Investigation Archives
+          </h2>
+          <ScrollArea className="h-[400px] rounded-xl border border-border/50 bg-accent/5 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {saved.map(inv => (
+                <Card key={inv.id} className="cursor-pointer hover:border-primary/40 transition-all hover:shadow-md group" onClick={() => { setQuery(inv.query); setPlan(inv.plan); setStep(3); setShowPast(false); }}>
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start mb-1">
+                      <Badge className={cn("text-[9px] font-black uppercase", THREAT_BADGE_STYLES[inv.threatLevel])}>{inv.threatLevel}</Badge>
+                      <span className="text-[10px] font-mono text-muted-foreground">{new Date(inv.savedAt).toLocaleDateString()}</span>
+                    </div>
+                    <CardTitle className="text-sm font-bold group-hover:text-primary transition-colors line-clamp-1">{inv.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground line-clamp-2 italic">"{inv.query}"</p>
+                  </CardContent>
+                  <CardFooter className="pt-0 justify-end">
+                    <ArrowRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0" />
+                  </CardFooter>
+                </Card>
+              ))}
             </div>
-          </div>
+          </ScrollArea>
         </div>
       )}
     </div>

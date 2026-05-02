@@ -283,35 +283,47 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [state.isRunning]); // intentionally omits duration — captured once at start
 
-  // ── Poll post count every 10 s while running ────────────────────────────────
+  // ── Poll post count every 10 s while running (MOCKED) ──────────────────────
   useEffect(() => {
     if (!state.isRunning) return;
 
-    fetch(`${API_BASE}/dashboard/stats`)
-      .then((r) => r.json())
-      .then((data) => {
-        baselinePostCountRef.current = data.totalPosts ?? 0;
-      })
-      .catch(() => {});
+    // fetch(`${API_BASE}/dashboard/stats`)
+    //   .then((r) => r.json())
+    //   .then((data) => {
+    //     baselinePostCountRef.current = data.totalPosts ?? 0;
+    //   })
+    //   .catch(() => {});
+    baselinePostCountRef.current = 1250;
 
     const poll = setInterval(() => {
-      fetch(`${API_BASE}/dashboard/stats`)
-        .then((r) => r.json())
-        .then((data) => {
-          const currentTotal = data.totalPosts ?? 0;
-          const scraped = Math.max(0, currentTotal - baselinePostCountRef.current);
+      // fetch(`${API_BASE}/dashboard/stats`)
+      //   .then((r) => r.json())
+      //   .then((data) => {
+      //     const currentTotal = data.totalPosts ?? 0;
+      //     const scraped = Math.max(0, currentTotal - baselinePostCountRef.current);
 
-          setState((prev) => {
-            if (!prev.isRunning) return prev;
-            const elapsedMins = prev.sessionStats.elapsedTime / 60;
-            const ppm = elapsedMins > 0 ? Math.round(scraped / elapsedMins) : 0;
-            return {
-              ...prev,
-              sessionStats: { ...prev.sessionStats, postsScraped: scraped, postsPerMinute: ppm },
-            };
-          });
-        })
-        .catch(() => {});
+      //     setState((prev) => {
+      //       if (!prev.isRunning) return prev;
+      //       const elapsedMins = prev.sessionStats.elapsedTime / 60;
+      //       const ppm = elapsedMins > 0 ? Math.round(scraped / elapsedMins) : 0;
+      //       return {
+      //         ...prev,
+      //         sessionStats: { ...prev.sessionStats, postsScraped: scraped, postsPerMinute: ppm },
+      //       };
+      //     });
+      //   })
+      //   .catch(() => {});
+      
+      setState((prev) => {
+        if (!prev.isRunning) return prev;
+        const scraped = prev.sessionStats.postsScraped + Math.floor(Math.random() * 5);
+        const elapsedMins = prev.sessionStats.elapsedTime / 60;
+        const ppm = elapsedMins > 0 ? Math.round(scraped / elapsedMins) : 10;
+        return {
+          ...prev,
+          sessionStats: { ...prev.sessionStats, postsScraped: scraped, postsPerMinute: ppm },
+        };
+      });
     }, 10_000);
 
     return () => clearInterval(poll);
@@ -564,7 +576,7 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(poll);
   }, [state.isRunning]);
 
-  // ── Start / Stop ────────────────────────────────────────────────────────────
+  // ── Start / Stop (MOCKED) ──────────────────────────────────────────────────
   const startScraper = useCallback(async () => {
     const {
       duration, runInstaExplore, runTwitterHome, runFacebookExplore, runRedditHome,
@@ -572,77 +584,43 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
       webSearchKeywords, webSearchMaxResults,
     } = state;
 
-    const totalSeconds = duration.hours * 3600 + duration.minutes * 60 + duration.seconds;
+    console.log("Mocked startScraper called with:", { duration, runInstaExplore, runTwitterHome, runFacebookExplore, runRedditHome });
+
     const instaKeywords = keywords.filter((k) => k.platform === "INSTAGRAM").map((k) => k.value);
     const twitterKeywords = keywords.filter((k) => k.platform === "TWITTER").map((k) => k.value);
     const facebookKeywords = keywords.filter((k) => k.platform === "FACEBOOK").map((k) => k.value);
     const redditKeywords = keywords.filter((k) => k.platform === "REDDIT").map((k) => k.value);
 
-    const payload = {
-      instaExplore: runInstaExplore,
-      twitterHome: runTwitterHome,
-      facebookExplore: runFacebookExplore,
-      redditHome: runRedditHome,
-      instaKeywords,
-      twitterKeywords,
-      facebookKeywords,
-      redditKeywords,
-      instaProfiles,
-      twitterProfiles,
-      facebookProfiles,
-      redditProfiles,
-      webSearchKeywords,
-      webSearchMaxResults,
-      duration: totalSeconds,
-    };
+    const activeTasks =
+      (runInstaExplore ? 1 : 0) +
+      (runTwitterHome ? 1 : 0) +
+      (runFacebookExplore ? 1 : 0) +
+      (runRedditHome ? 1 : 0) +
+      instaKeywords.length +
+      twitterKeywords.length +
+      facebookKeywords.length +
+      redditKeywords.length +
+      instaProfiles.length +
+      twitterProfiles.length +
+      facebookProfiles.length +
+      redditProfiles.length;
 
-    try {
-      const res = await fetch(`${API_BASE}/scraper/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Failed to start scraper");
-
-      const activeTasks =
-        (runInstaExplore ? 1 : 0) +
-        (runTwitterHome ? 1 : 0) +
-        (runFacebookExplore ? 1 : 0) +
-        (runRedditHome ? 1 : 0) +
-        instaKeywords.length +
-        twitterKeywords.length +
-        facebookKeywords.length +
-        redditKeywords.length +
-        instaProfiles.length +
-        twitterProfiles.length +
-        facebookProfiles.length +
-        redditProfiles.length;
-
-      setState((prev) => ({
-        ...prev,
-        isRunning: true,
-        sessionStats: {
-          startedAt: new Date().toISOString(),
-          postsScraped: 0,
-          postsPerMinute: 0,
-          elapsedTime: 0,
-          activeTasks,
-        },
-      }));
-    } catch (err) {
-      console.error("Failed to start scraper:", err);
-    }
+    setState((prev) => ({
+      ...prev,
+      isRunning: true,
+      sessionStats: {
+        startedAt: new Date().toISOString(),
+        postsScraped: 0,
+        postsPerMinute: 0,
+        elapsedTime: 0,
+        activeTasks,
+      },
+    }));
   }, [state]);
 
   const stopScraper = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/scraper/stop`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to stop scraper");
-      setState((prev) => ({ ...prev, isRunning: false }));
-    } catch (err) {
-      console.error("Failed to stop scraper:", err);
-    }
+    console.log("Mocked stopScraper called");
+    setState((prev) => ({ ...prev, isRunning: false }));
   }, []);
 
   const startWebSearch = useCallback(async () => {
