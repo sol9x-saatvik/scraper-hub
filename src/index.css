@@ -123,3 +123,20 @@
     font-family: 'JetBrains Mono', monospace;
   }
 }
+
+/* Mapbox Popup Overrides */
+.mapboxgl-popup-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0.75rem !important;
+}
+
+.mapboxgl-popup-tip {
+  display: none !important; /* Remove the tip for a cleaner floating look */
+}
+
+.custom-osint-popup {
+  z-index: 50;
+}
+

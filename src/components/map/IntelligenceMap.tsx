@@ -10,9 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Layers, MapPin, Activity, ShieldAlert, Globe, ChevronLeft, ChevronRight, Filter, Search, Info, ListFilter, X, Plus, RotateCcw } from "lucide-react";
+import { Layers, MapPin, Activity, ShieldAlert, Globe, ChevronLeft, ChevronRight, Filter, Search, Info, ListFilter, X, Plus, Minus, RotateCcw, Twitter, Instagram, Facebook, Linkedin, ExternalLink } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type DisplayMode = "pins" | "heatmap";
 
@@ -35,8 +36,21 @@ const PLATFORM_COLORS: Record<string, string> = {
   Web: "#6B7280",
 };
 
+const PLATFORM_ICONS: Record<string, any> = {
+  Twitter: Twitter,
+  Instagram: Instagram,
+  Reddit: Activity,
+  Facebook: Facebook,
+  Web: Globe,
+};
+
 function platformColor(platform: string): string {
   return PLATFORM_COLORS[platform] ?? PLATFORM_COLORS.Web;
+}
+
+function PlatformIcon({ platform, className }: { platform: string; className?: string }) {
+  const Icon = PLATFORM_ICONS[platform] ?? Globe;
+  return <Icon className={className} />;
 }
 
 interface IntelligenceMapProps {
@@ -200,20 +214,26 @@ export function IntelligenceMap({ height = "500px" }: IntelligenceMapProps) {
         el.style.cursor = "pointer";
         el.style.transition = "transform 0.2s ease-out";
 
-        const popup = new mapboxgl.Popup({ offset: 25, closeButton: false, className: "custom-osint-popup" }).setHTML(`
-          <div class="p-3 bg-background rounded-lg border border-border shadow-xl">
-            <p class="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">${g.platform}</p>
-            <p class="text-xs font-bold text-foreground mb-2">${g.locationName}</p>
-            <div class="flex items-center justify-between gap-4 border-t pt-2 mt-2">
-              <span class="text-[10px] font-bold text-muted-foreground">Signals</span>
-              <span class="text-xs font-black text-primary">${postCount}</span>
+        const popup = new mapboxgl.Popup({ offset: 15, closeButton: false, className: "custom-osint-popup" }).setHTML(`
+          <div class="min-w-[200px] bg-background/95 backdrop-blur-md border border-border/50 rounded-lg shadow-xl overflow-hidden">
+            <div class="px-3 py-2 border-b border-border/50 bg-accent/20 flex items-center justify-between">
+              <p class="text-xs font-black text-foreground">${g.locationName}</p>
+              <span class="text-[9px] font-bold text-muted-foreground">${g.country}</span>
             </div>
-            ${g.harmfulCount > 0 ? `
-              <div class="flex items-center justify-between gap-4 mt-1">
-                <span class="text-[10px] font-bold text-destructive">Harmful</span>
-                <span class="text-xs font-black text-destructive">${g.harmfulCount}</span>
+            <div class="p-3 space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-primary">${g.platform}</span>
+                </div>
+                <span class="text-xs font-black">${postCount} Signals</span>
               </div>
-            ` : ""}
+              <div class="flex items-center justify-between pt-1 border-t border-border/30">
+                <span class="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Status</span>
+                <span class="text-[10px] font-black ${g.harmfulCount > 0 ? 'text-destructive' : 'text-success'}">
+                  ${g.harmfulCount > 0 ? 'HIGH RISK' : 'SECURE'}
+                </span>
+              </div>
+            </div>
           </div>
         `);
 
@@ -283,205 +303,205 @@ export function IntelligenceMap({ height = "500px" }: IntelligenceMapProps) {
       {/* Map Instance */}
       <div ref={mapContainerRef} className="relative h-full w-full z-10" />
 
-      {/* Interface Overlay - Top Right */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col gap-3 w-48">
-        <div className="bg-background/80 backdrop-blur-md border border-border p-1 rounded-lg flex shadow-2xl">
-          <Button
-            variant={mode === "pins" ? "default" : "ghost"}
-            size="sm"
-            className="flex-1 h-8 text-[10px] font-bold uppercase gap-1.5"
-            onClick={() => setMode("pins")}
-          >
-            <MapPin className="h-3 w-3" /> Signals
-          </Button>
-          <Button
-            variant={mode === "heatmap" ? "default" : "ghost"}
-            size="sm"
-            className="flex-1 h-8 text-[10px] font-bold uppercase gap-1.5"
-            onClick={() => setMode("heatmap")}
-          >
-            <Activity className="h-3 w-3" /> Heatmap
-          </Button>
-        </div>
 
-        <div className="bg-background/80 backdrop-blur-md border border-border p-3 rounded-lg shadow-2xl space-y-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source Stream</p>
-          <div className="space-y-2">
-            {allPlatforms.map((pl) => (
-              <div key={pl} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: platformColor(pl) }} />
-                  <Label className="text-[11px] font-medium cursor-pointer" onClick={() => togglePlatform(pl)}>{pl}</Label>
-                </div>
-                <Checkbox
-                  checked={enabledPlatforms.has(pl)}
-                  onCheckedChange={() => togglePlatform(pl)}
-                  className="h-3.5 w-3.5"
-                />
-              </div>
-            ))}
-          </div>
-          <Separator className="bg-border/50" />
-          <div className="flex items-center justify-between">
-            <Label className="text-[11px] font-black text-destructive uppercase tracking-tighter">High Risk Only</Label>
-            <Switch checked={harmfulOnly} onCheckedChange={setHarmfulOnly} className="scale-75" />
-          </div>
+      {/* Map Controls - Top Right */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+        <div className="bg-background/80 backdrop-blur-md border border-border p-1 rounded-lg shadow-2xl flex flex-col gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => mapRef.current?.zoomIn()}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Zoom In</TooltipContent>
+            </Tooltip>
+            <Separator className="bg-border/50" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => mapRef.current?.zoomOut()}>
+                  <Minus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Zoom Out</TooltipContent>
+            </Tooltip>
+            <Separator className="bg-border/50" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => mapRef.current?.flyTo({ center: [0, 20], zoom: 1.2 })}>
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Reset View</TooltipContent>
+            </Tooltip>
+            <Separator className="bg-border/50" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Info className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="left" className="w-48 bg-background/95 backdrop-blur-md border-border p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">Intelligence Legend</p>
+                    <div className="space-y-1.5">
+                      {Object.entries(PLATFORM_COLORS).map(([pl, col]) => (
+                        <div key={pl} className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: col }} />
+                          <span className="text-[10px] font-medium">{pl}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </TooltipTrigger>
+              <TooltipContent side="left">Map Info</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
-      {/* Intelligence Sidebar - Left */}
-      <div className={cn(
-        "absolute top-4 bottom-4 z-20 flex flex-col bg-background/80 backdrop-blur-md border border-border shadow-2xl transition-all duration-300 rounded-xl overflow-hidden",
-        sidebarOpen ? "left-4 w-56" : "left-4 w-12"
-      )}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-full h-12 border-b border-border rounded-none text-muted-foreground hover:text-foreground"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-        >
-          {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
-        </Button>
-
-        {sidebarOpen && (
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="p-4 border-b border-border/50 bg-accent/5">
-              <div className="flex items-center gap-2 mb-1">
-                <Globe className="h-3 w-3 text-primary" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Regional Intelligence</span>
-              </div>
-              <p className="text-[11px] font-medium">{countries.length} Jurisdictions Active</p>
+      {/* Floating Bottom Filter Bar - Full Width */}
+      <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between bg-background/80 backdrop-blur-md border border-border px-4 py-2 rounded-xl shadow-2xl">
+        <div className="flex items-center gap-6">
+          {/* Data Counters */}
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-70">Active Jurisdictions</span>
+              <span className="text-sm font-bold">{countries.length}</span>
             </div>
+            <Separator orientation="vertical" className="h-8 bg-border/50" />
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-70">Intelligence Signals</span>
+              <span className="text-sm font-bold text-primary">{filteredPosts.length}</span>
+            </div>
+            <Separator orientation="vertical" className="h-8 bg-border/50" />
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-70">High Risk Threats</span>
+              <span className="text-sm font-bold text-destructive">{filteredPosts.filter(p => p.isHarmful).length}</span>
+            </div>
+          </div>
 
-            <ScrollArea className="flex-1 p-2">
-              <div className="space-y-1">
-                {selectedCountry && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start text-[10px] text-primary h-7 uppercase font-bold"
-                    onClick={() => setSelectedCountry(null)}
-                  >
-                    ✕ Clear Filter
-                  </Button>
-                )}
-                {countries.map((c) => {
-                  const harmfulInCountry = geoPosts.filter((p) => p.country === c.country && p.isHarmful).length;
-                  const isActive = selectedCountry === c.country;
+          <Separator orientation="vertical" className="h-8 bg-border/50" />
 
-                  return (
-                    <Button
-                      key={c.country}
-                      variant={isActive ? "secondary" : "ghost"}
-                      className={cn(
-                        "w-full justify-between h-8 px-2 text-[11px] font-medium group",
-                        isActive && "bg-primary/10 text-primary border-l-2 border-primary rounded-l-none"
-                      )}
-                      onClick={() => setSelectedCountry(isActive ? null : c.country)}
-                    >
-                      <span className="truncate">{c.country}</span>
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <span className="text-[10px] opacity-40 group-hover:opacity-100">{c.count}</span>
-                        {harmfulInCountry > 0 && (
-                          <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-[8px] border-none shadow-none">{harmfulInCountry}</Badge>
+          {/* Detailed Filters */}
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="secondary" size="sm" className="h-8 gap-2 px-3 rounded-lg text-[11px] font-bold">
+                  <ListFilter className="h-3.5 w-3.5" />
+                  Source Filter
+                  {enabledPlatforms.size < 5 && <Badge className="h-4 px-1 text-[9px]">{enabledPlatforms.size}</Badge>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Filter by Source</p>
+                <div className="space-y-2">
+                  {["Twitter", "Instagram", "Reddit", "Facebook", "Web"].map((pl) => (
+                    <div key={pl} className="flex items-center justify-between hover:bg-accent/30 p-1 rounded-md transition-colors cursor-pointer group" onClick={() => togglePlatform(pl)}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="h-7 w-7 rounded-lg flex items-center justify-center border border-border/50 transition-all group-hover:scale-110"
+                          style={{ 
+                            backgroundColor: enabledPlatforms.has(pl) ? `${platformColor(pl)}15` : 'transparent',
+                            color: enabledPlatforms.has(pl) ? platformColor(pl) : 'currentColor'
+                          }}
+                        >
+                          <PlatformIcon platform={pl} className="h-4 w-4" />
+                        </div>
+                        <Label className="text-[11px] font-bold cursor-pointer">{pl}</Label>
+                      </div>
+                      <Checkbox
+                        checked={enabledPlatforms.has(pl)}
+                        onCheckedChange={() => togglePlatform(pl)}
+                        className="h-3.5 w-3.5"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="secondary" size="sm" className="h-8 gap-2 px-3 rounded-lg text-[11px] font-bold">
+                  <Globe className="h-3.5 w-3.5" />
+                  Jurisdiction
+                  {selectedCountry && <Badge className="h-4 px-1 text-[9px] truncate max-w-[80px]">{selectedCountry}</Badge>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-0">
+                <div className="p-3 border-b border-border">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Select Region</p>
+                </div>
+                <ScrollArea className="h-64">
+                  <div className="p-1 space-y-1">
+                    {countries.map((c) => (
+                      <div key={c.country} className="space-y-1">
+                        <Button
+                          variant={selectedCountry === c.country ? "secondary" : "ghost"}
+                          size="sm"
+                          className={cn(
+                            "w-full justify-between h-9 px-3 text-[11px] font-bold rounded-lg transition-all",
+                            selectedCountry === c.country && "bg-primary/10 text-primary hover:bg-primary/20"
+                          )}
+                          onClick={() => setSelectedCountry(selectedCountry === c.country ? null : c.country)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-3 w-3 opacity-50" />
+                            {c.country}
+                          </div>
+                          <Badge variant="outline" className="text-[9px] px-1 h-4 bg-background/50 border-border/30">
+                            {c.count}
+                          </Badge>
+                        </Button>
+                        
+                        {selectedCountry === c.country && (
+                          <div className="pl-6 pr-2 py-1 space-y-0.5 border-l-2 border-primary/20 ml-4 mb-2">
+                            {c.cities.map(city => (
+                              <div key={city} className="flex items-center justify-between py-1 px-2 rounded hover:bg-accent/30 cursor-default group">
+                                <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">{city}</span>
+                                <div className="h-1 w-1 rounded-full bg-primary/30" />
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </Button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
-      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
 
-      {/* Floating Bottom Bar */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-background/90 backdrop-blur-md border border-border px-1.5 py-1.5 rounded-full shadow-2xl">
-        <Button variant="ghost" size="sm" className="h-8 rounded-full gap-2 px-3">
-          <ListFilter className="h-3.5 w-3.5" />
-          <span className="text-[11px] font-bold">Filters</span>
-          <Badge variant="secondary" className="h-5 px-1.5 text-[10px] min-w-[1.25rem]">{enabledPlatforms.size}</Badge>
-        </Button>
-        <Separator orientation="vertical" className="h-4 bg-border/50" />
-        <div className="flex items-center gap-4 px-3">
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">Regions</span>
-            <span className="text-xs font-bold">{countries.length}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">Signals</span>
-            <span className="text-xs font-bold">{filteredPosts.length}</span>
+            <div className="flex items-center gap-2 bg-background/50 px-3 py-1 rounded-lg border border-border/50">
+              <Label className="text-[10px] font-black uppercase text-destructive tracking-tighter">High Risk</Label>
+              <Switch checked={harmfulOnly} onCheckedChange={setHarmfulOnly} className="scale-75" />
+            </div>
           </div>
         </div>
-        <Separator orientation="vertical" className="h-4 bg-border/50" />
-        <Button 
-          variant="destructive" 
-          size="sm" 
-          className="h-8 rounded-full gap-2 px-4 bg-destructive/10 hover:bg-destructive/20 text-destructive border-none"
-          onClick={() => {
-            setEnabledPlatforms(new Set(["Twitter", "Instagram", "Reddit", "Facebook", "Web"]));
-            setHarmfulOnly(false);
-            setSelectedCountry(null);
-          }}
-        >
-          <X className="h-3.5 w-3.5" />
-          <span className="text-[11px] font-bold">Clear Filters</span>
-        </Button>
-      </div>
 
-      {/* Map Controls - Right Center */}
-      <div className="absolute top-1/2 -translate-y-1/2 right-4 z-20 flex flex-col gap-2 bg-background/80 backdrop-blur-md border border-border p-1 rounded-lg shadow-2xl">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => mapRef.current?.zoomIn()}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Zoom In</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => mapRef.current?.zoomOut()}>
-                <X className="h-4 w-4 rotate-45" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Zoom Out</TooltipContent>
-          </Tooltip>
-          <Separator className="bg-border/50" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => mapRef.current?.flyTo({ center: [0, 20], zoom: 1.2 })}>
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Reset View</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Intelligence Legend - Bottom Right */}
-      <div className="absolute bottom-6 right-6 z-20">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="h-9 w-9 rounded-full bg-background/80 backdrop-blur-md border border-border flex items-center justify-center cursor-help shadow-2xl">
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="bg-background/95 border-border p-3 w-48 shadow-2xl">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">Intelligence Source Legend</p>
-              <div className="space-y-1.5">
-                {Object.entries(PLATFORM_COLORS).map(([pl, col]) => (
-                  <div key={pl} className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: col }} />
-                    <span className="text-[10px] font-medium">{pl}</span>
-                  </div>
-                ))}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex items-center gap-2">
+          {(enabledPlatforms.size < 5 || harmfulOnly || selectedCountry) && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 gap-2 text-muted-foreground hover:text-foreground text-[11px]"
+              onClick={() => {
+                setEnabledPlatforms(new Set(["Twitter", "Instagram", "Reddit", "Facebook", "Web"]));
+                setHarmfulOnly(false);
+                setSelectedCountry(null);
+              }}
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset Filters
+            </Button>
+          )}
+          <Separator orientation="vertical" className="h-6 bg-border/50 mx-2" />
+          <Button variant="default" size="sm" className="h-8 rounded-lg font-bold text-[11px] px-4">
+            Analyze Signals
+          </Button>
+        </div>
       </div>
     </div>
   );

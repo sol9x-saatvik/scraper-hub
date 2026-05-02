@@ -57,9 +57,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
-      <SidebarHeader className="h-16 flex items-center px-4 border-b border-border/50">
+      <SidebarHeader className="h-16 flex items-start px-4 border-b border-border/50">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 flex items-center justify-center shrink-0">
+          <div className="h-8 w-8 flex items-center justify-center shrink-0">
             <img src="/small -logo-symbol.png" alt="SOL9X Logo" className="h-full w-full object-contain" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">

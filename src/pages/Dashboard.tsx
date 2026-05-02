@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { FileText, Users, Link2, Heart, Globe, MapPin, Loader2 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer,
 } from "recharts";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { getDashboardStats, type DashboardStats } from "@/services/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -145,9 +147,16 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={stats.postsOverTime}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-                  <XAxis dataKey="date" tick={TICK_STYLE} axisLine={false} tickLine={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={TICK_STYLE} 
+                    axisLine={false} 
+                    tickLine={false}
+                    dy={10}
+                    minTickGap={30}
+                  />
                   <YAxis tick={TICK_STYLE} allowDecimals={false} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
+                  <ChartTooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
                   <Line type="monotone" dataKey="posts" stroke={CHART_COLORS[0]} strokeWidth={2} dot={{ r: 4, fill: CHART_COLORS[0], strokeWidth: 0 }} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -157,9 +166,21 @@ export default function Dashboard() {
 
         {/* Likes Distribution */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Likes Distribution</CardTitle>
-            <CardDescription>Breakdown of posts by engagement</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="space-y-1">
+              <CardTitle className="text-base font-semibold">Likes Distribution</CardTitle>
+              <CardDescription>Breakdown of posts by engagement</CardDescription>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help hover:text-primary transition-colors" />
+                </TooltipTrigger>
+                <TooltipContent className="bg-background border-border p-2 shadow-xl">
+                  <p className="text-[11px] font-medium max-w-[200px]">Analyzes the volume of posts within specific engagement brackets to identify viral vs. low-impact signals.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardHeader>
           <CardContent>
             {stats.likesDistribution.every((b: any) => b.count === 0) ? (
@@ -170,7 +191,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
                   <XAxis dataKey="range" tick={TICK_STYLE} axisLine={false} tickLine={false} />
                   <YAxis tick={TICK_STYLE} allowDecimals={false} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
+                  <ChartTooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
                   <Bar dataKey="count" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -205,7 +226,7 @@ export default function Dashboard() {
                           <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
+                      <ChartTooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -243,7 +264,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} horizontal={false} />
                   <XAxis type="number" tick={TICK_STYLE} allowDecimals={false} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="source" tick={TICK_STYLE} width={80} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
+                  <ChartTooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={32}>
                     {(stats.sourceBreakdown ?? []).map((_: any, i: number) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
