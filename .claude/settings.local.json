@@ -12,7 +12,10 @@
       "Bash(npm install *)",
       "Bash(npm ls *)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('React:', p.dependencies.react, '| react-dom:', p.dependencies['react-dom']\\)\")",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(rm \"C:\\\\Users\\\\ASUS\\\\selenium-work\\\\NewProject\\\\src\\\\com\\\\scraperhub\\\\service\\\\PostGeoService.java\")",
+      "Bash(rm \"C:\\\\Users\\\\ASUS\\\\selenium-work\\\\NewProject\\\\src\\\\com\\\\scraperhub\\\\repository\\\\PostGeoRepository.java\")",
+      "Bash(git checkout *)"
     ]
   }
 }

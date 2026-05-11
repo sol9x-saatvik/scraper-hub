@@ -554,29 +554,7 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  // Keep a stable ref so the auto-trigger effect can call it without dependency
-  const analyzeAllPostsRef = useRef(analyzeAllPosts);
-  analyzeAllPostsRef.current = analyzeAllPosts;
-
-  // ── Auto-trigger: poll for new posts every 30s while scraper is running ──────
-  useEffect(() => {
-    if (!state.isRunning) return;
-
-    const poll = setInterval(() => {
-      getAllPosts()
-        .then((posts) => {
-          const unanalyzed = posts.filter((p) => !postAnalysesRef.current.has(getPostId(p)));
-          if (unanalyzed.length > 0 && !isAnalyzingRef.current) {
-            analyzeAllPostsRef.current(unanalyzed);
-          }
-        })
-        .catch(() => {});
-    }, 30_000);
-
-    return () => clearInterval(poll);
-  }, [state.isRunning]);
-
-  // ── Start / Stop (MOCKED) ──────────────────────────────────────────────────
+  // ── Start / Stop ────────────────────────────────────────────────────────────
   const startScraper = useCallback(async () => {
     const {
       duration, runInstaExplore, runTwitterHome, runFacebookExplore, runRedditHome,
@@ -584,44 +562,74 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
       webSearchKeywords, webSearchMaxResults,
     } = state;
 
-    console.log("Mocked startScraper called with:", { duration, runInstaExplore, runTwitterHome, runFacebookExplore, runRedditHome });
-
     const instaKeywords = keywords.filter((k) => k.platform === "INSTAGRAM").map((k) => k.value);
     const twitterKeywords = keywords.filter((k) => k.platform === "TWITTER").map((k) => k.value);
     const facebookKeywords = keywords.filter((k) => k.platform === "FACEBOOK").map((k) => k.value);
     const redditKeywords = keywords.filter((k) => k.platform === "REDDIT").map((k) => k.value);
 
-    const activeTasks =
-      (runInstaExplore ? 1 : 0) +
-      (runTwitterHome ? 1 : 0) +
-      (runFacebookExplore ? 1 : 0) +
-      (runRedditHome ? 1 : 0) +
-      instaKeywords.length +
-      twitterKeywords.length +
-      facebookKeywords.length +
-      redditKeywords.length +
-      instaProfiles.length +
-      twitterProfiles.length +
-      facebookProfiles.length +
-      redditProfiles.length;
+    const totalSeconds = (duration.hours * 3600) + (duration.minutes * 60) + duration.seconds;
 
-    setState((prev) => ({
-      ...prev,
-      isRunning: true,
-      sessionStats: {
-        startedAt: new Date().toISOString(),
-        postsScraped: 0,
-        postsPerMinute: 0,
-        elapsedTime: 0,
-        activeTasks,
-      },
-    }));
+    const activeTasks = [
+      runInstaExplore, runTwitterHome, runFacebookExplore, runRedditHome,
+      instaKeywords.length > 0, twitterKeywords.length > 0,
+      facebookKeywords.length > 0, redditKeywords.length > 0,
+      instaProfiles.length > 0, twitterProfiles.length > 0,
+      facebookProfiles.length > 0, redditProfiles.length > 0,
+    ].filter(Boolean).length;
+
+    const requestBody = {
+      instaExplore: runInstaExplore,
+      twitterHome: runTwitterHome,
+      facebookExplore: runFacebookExplore,
+      redditHome: runRedditHome,
+      instaKeywords,
+      twitterKeywords,
+      facebookKeywords,
+      redditKeywords,
+      instaProfiles,
+      twitterProfiles,
+      facebookProfiles,
+      redditProfiles,
+      webSearchKeywords,
+      webSearchMaxResults,
+      duration: totalSeconds,
+    };
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api'}/scraper/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setState((prev) => ({
+        ...prev,
+        isRunning: true,
+        sessionStats: {
+          startedAt: new Date().toISOString(),
+          postsScraped: 0,
+          postsPerMinute: 0,
+          elapsedTime: 0,
+          activeTasks,
+        },
+      }));
+    } catch (err) {
+      console.error('Failed to start scraper:', err);
+      throw err;
+    }
   }, [state]);
 
   const stopScraper = useCallback(async () => {
-    console.log("Mocked stopScraper called");
-    setState((prev) => ({ ...prev, isRunning: false }));
-  }, []);
+    try {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api'}/scraper/stop`, {
+        method: 'POST',
+      });
+      setState((prev) => ({ ...prev, isRunning: false }));
+    } catch (err) {
+      console.error('Failed to stop scraper:', err);
+      setState((prev) => ({ ...prev, isRunning: false }));
+    }
+  }, [state]);
 
   const startWebSearch = useCallback(async () => {
     const { webSearchKeywords, webSearchMaxResults } = state;

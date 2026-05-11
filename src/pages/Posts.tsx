@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Search, ChevronLeft, ChevronRight, ExternalLink, ChevronDown, Sparkles, Loader2, ListFilter, MoreHorizontal, FilterX } from "lucide-react";
 import { toast } from "sonner";
@@ -224,7 +224,7 @@ function derivePostId(post: AnyPost): string {
 export default function Posts() {
   const location = useLocation();
   const { state, analyzeAllPosts, getPostAnalysis } = useScraperContext();
-  const { isAnalyzing, analysisProgress } = state;
+  const { isAnalyzing, analysisProgress, isRunning } = state;
 
   const [viewType, setViewType] = useState<ViewType>("all");
   const [rawPosts, setRawPosts] = useState<AnyPost[]>([]);
@@ -263,6 +263,15 @@ export default function Posts() {
         case "web-search": data = await getWebSearchPosts(); break;
         default: data = [];
       }
+      data.sort((a, b) => {
+        const parse = (post: any) => {
+          const d = (post.date || "").split("-");
+          // format is DD-MM-YYYY, convert to YYYY-MM-DD for correct sorting
+          const dateStr = d.length === 3 ? `${d[2]}-${d[1]}-${d[0]}` : "";
+          return `${dateStr}T${post.time || "00:00:00"}`;
+        };
+        return parse(b).localeCompare(parse(a));
+      });
       setRawPosts(data);
     } catch {
       setError("Intelligence server unreachable. Check connection.");
@@ -273,6 +282,22 @@ export default function Posts() {
   }, [viewType]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const interval = setInterval(() => {
+      fetchPosts();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isRunning, fetchPosts]);
+
+  const prevIsRunning = useRef(false);
+  useEffect(() => {
+    if (prevIsRunning.current && !isRunning) {
+      fetchPosts();
+    }
+    prevIsRunning.current = isRunning;
+  }, [isRunning, fetchPosts]);
 
   useEffect(() => {
     setPage(1);
@@ -627,15 +652,27 @@ export default function Posts() {
                         return (
                           <TableCell key={col.key} className={cn("py-4 text-sm", col.align === "right" && "text-right font-mono")}>
                             {col.key === "platform" ? (
-                              <Badge variant={rawVal === "Twitter" ? "default" : rawVal === "Instagram" ? "secondary" : "outline"} className="text-[10px] font-bold px-1.5 py-0">
-                                {rawVal}
-                              </Badge>
+                              (() => {
+                                const platformDisplay = String(rawVal);
+                                const platformNormalized = platformDisplay.charAt(0).toUpperCase() + platformDisplay.slice(1).toLowerCase();
+                                return (
+                                  <Badge variant={platformNormalized === "Twitter" ? "default" : platformNormalized === "Instagram" ? "secondary" : "outline"} className="text-[10px] font-bold px-1.5 py-0">
+                                    {platformNormalized}
+                                  </Badge>
+                                );
+                              })()
+                            ) : col.key === "source" ? (
+                              <span className="text-foreground font-medium">
+                                {String(rawVal).charAt(0).toUpperCase() + String(rawVal).slice(1).toLowerCase()}
+                              </span>
                             ) : col.key === "status" ? (
                               <Badge className={cn("text-[9px] uppercase font-black", rawVal === "SUCCESS" ? "bg-success hover:bg-success" : "bg-destructive hover:bg-destructive")}>
                                 {rawVal}
                               </Badge>
                             ) : col.key === "likes" || col.key === "upvotes" ? (
-                              <span className="font-bold text-foreground">{Number(rawVal).toLocaleString()}</span>
+                              <span className="font-bold text-foreground">
+                                {isNaN(Number(rawVal)) ? 0 : Number(rawVal).toLocaleString()}
+                              </span>
                             ) : (
                               <span className={cn(
                                 (col.key === "content" || col.key === "snippet") ? "text-muted-foreground text-xs leading-relaxed max-w-[300px] inline-block" : "text-foreground font-medium",
@@ -659,15 +696,51 @@ export default function Posts() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 bg-muted/30 border-t border-border">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">
-              Page {page} <span className="mx-2 opacity-30">|</span> Total Intelligence {posts.length.toLocaleString()}
+              Page {page} of {totalPages} <span className="mx-2 opacity-30">|</span> Total {posts.length.toLocaleString()}
             </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="h-9 px-4 gap-2" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-                <ChevronLeft className="h-4 w-4" /> Previous
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 px-4 gap-2" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
-                Next <ChevronRight className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-9 px-3" disabled={page === 1} onClick={() => setPage(1)}>«</Button>
+              <Button variant="outline" size="sm" className="h-9 px-3" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</Button>
+
+              {/* Page number buttons */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                const pageNum = start + i;
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={pageNum === page ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                    onClick={() => setPage(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+
+              <Button variant="outline" size="sm" className="h-9 px-3" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</Button>
+              <Button variant="outline" size="sm" className="h-9 px-3" disabled={page === totalPages} onClick={() => setPage(totalPages)}>»</Button>
+
+              {/* Go to page input */}
+              <div className="flex items-center gap-1 ml-2">
+                <span className="text-xs text-muted-foreground">Go to:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  className="h-9 w-16 text-center"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const val = parseInt((e.target as HTMLInputElement).value);
+                      if (val >= 1 && val <= totalPages) {
+                        setPage(val);
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }
+                  }}
+                />
+              </div>
             </div>
           </div>
         )}

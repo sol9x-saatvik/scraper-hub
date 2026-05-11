@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8081/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api";
 
 // ── Post types per collection ──
 
@@ -225,20 +225,6 @@ export interface DashboardStats {
   sourceBreakdown: any[];
 }
 
-// ── Dummy Data ──
-
-const DUMMY_ALL_POSTS: AllPost[] = [];
-
-const DUMMY_STATS: DashboardStats = {
-  totalPosts: 0,
-  uniqueUsers: 0,
-  totalLinks: 0,
-  averageLikes: 0,
-  postsOverTime: [],
-  likesDistribution: [],
-  topUsers: [],
-  sourceBreakdown: [],
-};
 
 // ── Monitoring types ──
 
@@ -269,7 +255,6 @@ export interface MonitoredUser {
   notes?: string;
 }
 
-const DUMMY_MONITORED_USERS: MonitoredUser[] = [];
 
 // ── Geo Intelligence types ──
 
@@ -298,113 +283,145 @@ export interface GeoCountry {
   count: number;
 }
 
-const DUMMY_GEO_POSTS: PostGeo[] = [];
-
-// ── Fetch helpers (MOCKED) ──
+// ── Fetch helper ──
 
 async function fetchJson<T>(url: string): Promise<T> {
-  console.log(`Mocking fetch to: ${url}`);
-  return null as any;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  return response.json();
 }
 
 export async function getAllPosts(params?: { search?: string; minLikes?: number }): Promise<AllPost[]> {
-  return DUMMY_ALL_POSTS;
+  const query = new URLSearchParams();
+  if (params?.search) query.append("search", params.search);
+  if (params?.minLikes) query.append("minLikes", params.minLikes.toString());
+  return fetchJson(`${API_BASE}/posts/all?${query}`);
 }
 
-export async function getInstaExplorePosts(params?: { search?: string; minLikes?: number }): Promise<InstaExplorePost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Instagram" && p.source === "Explore") as any;
+export async function getInstaExplorePosts(): Promise<InstaExplorePost[]> {
+  return fetchJson(`${API_BASE}/posts/instagram/explore`);
 }
 
-export async function getInstaSearchPosts(params?: { search?: string; minLikes?: number }): Promise<InstaSearchPost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Instagram" && p.source === "Search") as any;
+export async function getInstaSearchPosts(): Promise<InstaSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/instagram/search`);
 }
 
-export async function getInstaProfilePosts(params?: { search?: string; minLikes?: number }): Promise<InstaProfilePost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Instagram" && p.source === "Profile") as any;
+export async function getInstaProfilePosts(): Promise<InstaProfilePost[]> {
+  return fetchJson(`${API_BASE}/posts/instagram/profile`);
 }
 
-export async function getTwitterHomePosts(params?: { search?: string; minLikes?: number }): Promise<TwitterHomePost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Twitter" && p.source === "Home") as any;
+export async function getTwitterHomePosts(): Promise<TwitterHomePost[]> {
+  return fetchJson(`${API_BASE}/posts/twitter/home`);
 }
 
-export async function getTwitterSearchPosts(params?: { search?: string; minLikes?: number }): Promise<TwitterSearchPost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Twitter" && p.source === "Search") as any;
+export async function getTwitterSearchPosts(): Promise<TwitterSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/twitter/search`);
 }
 
-export async function getTwitterProfilePosts(params?: { search?: string; minLikes?: number }): Promise<TwitterProfilePost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Twitter" && p.source === "Profile") as any;
+export async function getTwitterProfilePosts(): Promise<TwitterProfilePost[]> {
+  return fetchJson(`${API_BASE}/posts/twitter/profile`);
 }
 
-export async function getFacebookExplorePosts(params?: { search?: string; minLikes?: number }): Promise<FacebookExplorePost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Facebook" && p.source === "Explore") as any;
+export async function getFacebookExplorePosts(): Promise<FacebookExplorePost[]> {
+  return fetchJson(`${API_BASE}/posts/facebook/explore`);
 }
 
-export async function getFacebookSearchPosts(params?: { search?: string; minLikes?: number }): Promise<FacebookSearchPost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Facebook" && p.source === "Search") as any;
+export async function getFacebookSearchPosts(): Promise<FacebookSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/facebook/search`);
 }
 
-export async function getFacebookProfilePosts(params?: { search?: string; minLikes?: number }): Promise<FacebookProfilePost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Facebook" && p.source === "Profile") as any;
+export async function getFacebookProfilePosts(): Promise<FacebookProfilePost[]> {
+  return fetchJson(`${API_BASE}/posts/facebook/profile`);
 }
 
-export async function getRedditHomePosts(params?: { search?: string; minLikes?: number }): Promise<RedditHomePost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Reddit" && p.source === "Home") as any;
+export async function getRedditHomePosts(): Promise<RedditHomePost[]> {
+  return fetchJson(`${API_BASE}/posts/reddit/home`);
 }
 
-export async function getRedditSearchPosts(params?: { search?: string; minLikes?: number }): Promise<RedditSearchPost[]> {
-  return DUMMY_ALL_POSTS.filter(p => p.platform === "Reddit" && p.source === "Search") as any;
+export async function getRedditSearchPosts(): Promise<RedditSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/reddit/search`);
 }
 
 export async function getWebSearchPosts(keyword?: string): Promise<WebSearchPost[]> {
-  return [
-    {
-      id: "ws1",
-      keyword: keyword || "technology",
-      title: "Latest in AI Development",
-      url: "https://example.com/ai-news",
-      snippet: "Artificial Intelligence is evolving rapidly...",
-      scrapedContent: "Full content of the article...",
-      engine: "Google",
-      status: "SUCCESS",
-      scrapedAt: new Date().toISOString(),
-    }
-  ];
+  const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
+  return fetchJson(`${API_BASE}/posts/websearch${query}`);
 }
 
 export async function getDashboardStats(platform?: string): Promise<DashboardStats> {
-  return DUMMY_STATS;
+  const query = platform ? `?platform=${platform}` : "";
+  return fetchJson(`${API_BASE}/dashboard/stats${query}`);
 }
 
-// ── Monitoring API (MOCKED) ──
+// ── Monitoring API ──
 
 export async function getMonitoredUsers(): Promise<MonitoredUser[]> {
-  return DUMMY_MONITORED_USERS;
+  return fetchJson(`${API_BASE}/monitoring/users`);
 }
 
 export async function addMonitoredUser(user: Partial<MonitoredUser>): Promise<MonitoredUser> {
-  console.log("Mocked addMonitoredUser:", user);
-  return { ...user, id: Math.random().toString() } as MonitoredUser;
+  const response = await fetch(`${API_BASE}/monitoring/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(user),
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  return response.json();
 }
 
 export async function updateMonitoredUser(id: string, updates: Partial<MonitoredUser>): Promise<MonitoredUser> {
-  console.log("Mocked updateMonitoredUser:", id, updates);
-  return { id, ...updates } as any;
+  const response = await fetch(`${API_BASE}/monitoring/users/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  return response.json();
 }
 
 export async function deleteMonitoredUser(id: string): Promise<void> {
-  console.log("Mocked deleteMonitoredUser:", id);
+  const response = await fetch(`${API_BASE}/monitoring/users/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 }
 
-// ── Geo API (MOCKED) ──
+// ── Geo API ──
 
 export async function getGeoPosts(filters?: { platform?: string; country?: string; keyword?: string }): Promise<PostGeo[]> {
-  return DUMMY_GEO_POSTS;
+  const query = new URLSearchParams();
+  if (filters?.platform) query.append("platform", filters.platform);
+  if (filters?.country) query.append("country", filters.country);
+  if (filters?.keyword) query.append("keyword", filters.keyword);
+  return fetchJson(`${API_BASE}/geo/posts?${query}`);
 }
 
 export async function saveGeoPost(post: PostGeo): Promise<void> {
-  console.log("Mocked saveGeoPost:", post);
+  const response = await fetch(`${API_BASE}/geo/posts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(post),
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 }
 
 export async function getGeoCountries(): Promise<GeoCountry[]> {
-  return [];
+  return fetchJson(`${API_BASE}/geo/countries`);
+}
+
+// ── Scraper API ──
+
+export async function startScraper(request: ScraperRequest): Promise<void> {
+  const response = await fetch(`${API_BASE}/scraper/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+}
+
+export async function stopScraper(): Promise<void> {
+  const response = await fetch(`${API_BASE}/scraper/stop`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 }
