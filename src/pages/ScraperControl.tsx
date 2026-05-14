@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AIKeywordGenerator } from "@/components/scraper/AIKeywordGenerator";
 
 const IG_HASHTAG_REGEX = /^[A-Za-z0-9_]+$/;
-const TW_KEYWORD_REGEX = /^[A-Za-z0-9_]+$/;
+const TW_KEYWORD_REGEX = /^[A-Za-z0-9_ ]+$/;
 const IG_PROFILE_REGEX = /^(?!.*\.$)[A-Za-z0-9._]+$/;
 const TW_PROFILE_REGEX = /^[A-Za-z0-9_]+$/;
 
@@ -219,7 +219,7 @@ export default function ScraperControl() {
           </div>
           <div className="flex-1 min-w-[200px]">
             <label className="text-xs text-muted-foreground mb-1.5 block">
-              Keyword {keywordPlatform === "INSTAGRAM" ? "(letters, numbers, _ only)" : "(letters, numbers, _ only)"}
+              Keyword {keywordPlatform === "INSTAGRAM" ? "(letters, numbers, _ only)" : "(letters, numbers, spaces, _ only)"}
             </label>
             <div className="flex gap-2">
               <div className="flex-1 relative">
