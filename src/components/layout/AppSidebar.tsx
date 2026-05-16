@@ -49,13 +49,37 @@ export function AppSidebar() {
       </nav>
 
       <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-2">
-          <span className={cn("h-2 w-2 rounded-full", state.isRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
-          <span className="text-xs text-muted-foreground">
-            {state.isRunning ? "Scraper Running" : "Scraper Idle"}
-          </span>
-        </div>
+            <div className="flex items-center gap-2">
+              <span className={cn("h-2 w-2 rounded-full", state.isRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
+              <span className="text-xs text-muted-foreground">
+                {state.isRunning ? "Scraper Running" : "Scraper Idle"}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-border mt-auto">
+            <UserAccountBanner />
       </div>
     </aside>
   );
 }
+
+    function UserAccountBanner() {
+      const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const user = userJson ? JSON.parse(userJson) : null;
+
+      function logout() {
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+
+      return (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium text-foreground">{user ? user.username : 'Guest'}</div>
+            <div className="text-xs text-muted-foreground">{user ? user.email : 'Not signed in'}</div>
+          </div>
+          <button onClick={logout} className="text-sm text-destructive hover:underline">Logout</button>
+        </div>
+      );
+    }

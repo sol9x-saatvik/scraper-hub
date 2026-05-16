@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ScraperProvider } from "@/context/ScraperContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import ScraperControl from "./pages/ScraperControl";
 import Posts from "./pages/Posts";
 import UserMonitoring from "./pages/UserMonitoring";
@@ -43,6 +45,8 @@ const App = () => (
               <Route path="/map" element={<MapView />} />
               <Route path="/investigate" element={<Investigate />} />
             </Route>
+            <Route path="/login" element={<Login/>} />
+            <Route path="/signup" element={<Signup/>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

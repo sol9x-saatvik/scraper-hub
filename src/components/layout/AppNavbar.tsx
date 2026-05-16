@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, Settings, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const navItems = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
@@ -18,6 +19,7 @@ export function AppNavbar() {
   const { state } = useScraperContext();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -42,6 +44,7 @@ export function AppNavbar() {
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+            
           </div>
         </div>
       </header>

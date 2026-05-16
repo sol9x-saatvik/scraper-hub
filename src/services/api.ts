@@ -294,7 +294,16 @@ export async function getWebSearchPosts(keyword?: string): Promise<WebSearchPost
 }
 
 export async function getDashboardStats(platform?: string): Promise<DashboardStats> {
-  const q = platform && platform !== "all" ? `?platform=${platform}` : "";
+  const params = new URLSearchParams();
+  if (platform && platform !== "all") params.set("platform", platform);
+  try {
+    const userJson = localStorage.getItem("user");
+    if (userJson) {
+      const u = JSON.parse(userJson);
+      if (u && u.username) params.set("viewer", u.username);
+    }
+  } catch {}
+  const q = params.toString() ? `?${params.toString()}` : "";
   return fetchJson<DashboardStats>(`${API_BASE}/dashboard/stats${q}`);
 }
 
