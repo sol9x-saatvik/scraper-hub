@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import "../auth.css";
 
 export default function Login() {
   const { register, handleSubmit } = useForm();
@@ -34,22 +35,45 @@ export default function Login() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h2 className="text-xl font-semibold mb-4">Login</h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <Label>Username</Label>
-          <Input {...register("username")} />
-        </div>
-        <div>
-          <Label>Password</Label>
-          <Input type="password" {...register("password")} />
-        </div>
-        <div className="flex items-center justify-between">
-          <Button type="submit">Login</Button>
-          <Button variant="ghost" onClick={() => navigate("/signup")}>Sign up</Button>
-        </div>
-      </form>
+    <div className="auth-page">
+      <div className="auth-shell">
+        <aside className="auth-aside">
+          <div className="auth-brand">
+            <span className="auth-brand-icon">S</span>
+            <div>
+              <span>SCRAPER HUB</span>
+            </div>
+          </div>
+          <div className="auth-panel-copy">
+            <h1>Welcome back</h1>
+            <p>Access the dashboard and monitor trends, alerts, and social activity with one secure login.</p>
+          </div>
+        </aside>
+
+        <section className="auth-card">
+          <div className="auth-card-inner">
+            <div className="auth-card-header">
+              <h2>Login</h2>
+              <p>Sign in to access your account and continue monitoring social media activity.</p>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
+              <div className="auth-field">
+                <Label>Username</Label>
+                <Input {...register("username")} />
+              </div>
+              <div className="auth-field">
+                <Label>Password</Label>
+                <Input type="password" {...register("password")} />
+              </div>
+              <div className="auth-actions">
+                <Button type="submit" size="lg" className="auth-submit">Login</Button>
+                <Button variant="ghost" size="lg" className="auth-link" onClick={() => navigate("/signup")}>Sign up</Button>
+              </div>
+              <p className="auth-note">Don’t have an account? Create one to begin monitoring in minutes.</p>
+            </form>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import "../auth.css";
 
 export default function Signup() {
   const { register, handleSubmit } = useForm();
@@ -33,26 +34,49 @@ export default function Signup() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h2 className="text-xl font-semibold mb-4">Sign up</h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <Label>Username</Label>
-          <Input {...register("username")} />
-        </div>
-        <div>
-          <Label>Email</Label>
-          <Input type="email" {...register("email")} />
-        </div>
-        <div>
-          <Label>Password</Label>
-          <Input type="password" {...register("password")} />
-        </div>
-        <div className="flex items-center justify-between">
-          <Button type="submit">Create account</Button>
-          <Button variant="ghost" onClick={() => navigate("/login")}>Login</Button>
-        </div>
-      </form>
+    <div className="auth-page">
+      <div className="auth-shell">
+        <aside className="auth-aside">
+          <div className="auth-brand">
+            <span className="auth-brand-icon">S</span>
+            <div>
+              <span>SCRAPER HUB</span>
+            </div>
+          </div>
+          <div className="auth-panel-copy">
+            <h1>Create your account</h1>
+            <p>Register now to start tracking social conversations, generate alerts, and analyze trends instantly.</p>
+          </div>
+        </aside>
+
+        <section className="auth-card">
+          <div className="auth-card-inner">
+            <div className="auth-card-header">
+              <h2>Sign up</h2>
+              <p>Set up your account and join the dashboard to monitor feeds across multiple channels.</p>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
+              <div className="auth-field">
+                <Label>Username</Label>
+                <Input {...register("username")} />
+              </div>
+              <div className="auth-field">
+                <Label>Email</Label>
+                <Input type="email" {...register("email")} />
+              </div>
+              <div className="auth-field">
+                <Label>Password</Label>
+                <Input type="password" {...register("password")} />
+              </div>
+              <div className="auth-actions">
+                <Button type="submit" size="lg" className="auth-submit">Create account</Button>
+                <Button variant="ghost" size="lg" className="auth-link" onClick={() => navigate("/login")}>Login</Button>
+              </div>
+              <p className="auth-note">Already have an account? Use the login link to return to the portal.</p>
+            </form>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
