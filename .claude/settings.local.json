@@ -17,7 +17,9 @@
       "Bash(rm \"C:\\\\Users\\\\ASUS\\\\selenium-work\\\\NewProject\\\\src\\\\com\\\\scraperhub\\\\repository\\\\PostGeoRepository.java\")",
       "Bash(git checkout *)",
       "Bash(Get-ChildItem -Path \"C:/Users/ASUS/selenium-work/NewProject\" -Recurse -File)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(mkdir -p \"C:/Users/ASUS/coding projects/scraper-hub/.github/workflows\")",
+      "Bash(mkdir -p \"C:/Users/ASUS/selenium-work/NewProject/.github/workflows\")"
     ]
   }
 }
