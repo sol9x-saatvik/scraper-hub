@@ -1,75 +1,50 @@
-import { Moon, Sun, Menu } from "lucide-react";
+import { Moon, Sun, Search, Bell, Activity } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useScraperContext } from "@/context/ScraperContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, FileText } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
-const navItems = [
-  { label: "Dashboard", to: "/", icon: LayoutDashboard },
-  { label: "Scraper Control", to: "/scraper", icon: Settings },
-  { label: "Posts Viewer", to: "/posts", icon: FileText },
-];
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 export function AppNavbar() {
   const { theme, toggleTheme } = useTheme();
   const { state } = useScraperContext();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
 
   return (
-    <>
-      <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between h-14 px-4 md:px-6">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="md:hidden h-8 w-8" onClick={() => setMobileOpen(!mobileOpen)}>
-              <Menu className="h-4 w-4" />
-            </Button>
-            <h2 className="text-sm font-semibold text-foreground">Social Media Scraper System</h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
-              state.isRunning ? "border-success/30 bg-success/10 text-success" : "border-border bg-muted text-muted-foreground"
-            )}>
-              <span className={cn("h-1.5 w-1.5 rounded-full", state.isRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
-              {state.isRunning ? "Running" : "Idle"}
+    <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <div className="flex items-center justify-between h-16 px-4 md:px-6">
+        <div className="flex items-center gap-4 flex-1">
+          <SidebarTrigger className="h-9 w-9" />
+          <div className="hidden md:flex items-center gap-2 flex-1 max-w-xl">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+              <Input 
+                placeholder="Global Intelligence Search..." 
+                className="pl-9 bg-accent/10 border-none h-9 focus-visible:ring-1 focus-visible:ring-primary/40 w-full text-xs"
+              />
             </div>
-
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-            
           </div>
         </div>
-      </header>
 
-      {mobileOpen && (
-        <div className="md:hidden border-b border-border bg-card p-3 space-y-1">
-          {navItems.map((item) => {
-            const active = location.pathname === item.to;
-            return (
-              <RouterNavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </RouterNavLink>
-            );
-          })}
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="h-6 gap-1 px-2 border-border/50 bg-accent/30 text-[9px] font-black uppercase tracking-widest text-foreground/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-pulse" />
+            Standby
+          </Badge>
+          <div className="flex items-center gap-1 border-l border-border/50 pl-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+              <Bell className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 rounded-full">
+              {theme === "dark" ? <Sun className="h-3.5 w-3.5 text-amber-400" /> : <Moon className="h-3.5 w-3.5" />}
+            </Button>
+            <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-[10px] ml-1">
+              SM
+            </div>
+          </div>
         </div>
-      )}
-    </>
+      </div>
+    </header>
   );
 }

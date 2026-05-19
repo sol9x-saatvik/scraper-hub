@@ -1,18 +1,51 @@
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, FileText, ShieldAlert, Bell, Briefcase, BarChart2, Users, Cog, ClipboardList, Globe, Crosshair, type LucideIcon } from "lucide-react";
+import {
+  LayoutDashboard,
+  Settings,
+  FileText,
+  ShieldAlert,
+  Bell,
+  Briefcase,
+  BarChart2,
+  Users,
+  Cog,
+  ClipboardList,
+  Globe,
+  Crosshair,
+  type LucideIcon,
+  Monitor
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScraperContext } from "@/context/ScraperContext";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+} from "@/components/ui/sidebar";
 
 const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
   { label: "Investigate", to: "/investigate", icon: Crosshair },
   { label: "Scraper Control", to: "/scraper", icon: Settings },
-  { label: "Posts Viewer", to: "/posts", icon: FileText },
-  { label: "User Monitoring", to: "/monitoring", icon: ShieldAlert },
+  { label: "Intelligence Feed", to: "/posts", icon: FileText },
+  { label: "Target Monitoring", to: "/monitoring", icon: ShieldAlert },
+];
+
+const secondaryItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Alerts", to: "/alerts", icon: Bell },
   { label: "Case Management", to: "/cases", icon: Briefcase },
   { label: "Analytics & Report", to: "/analytics", icon: BarChart2 },
   { label: "Geo Intelligence", to: "/map", icon: Globe },
+];
+
+const bottomItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Team", to: "/team", icon: Users },
   { label: "Settings", to: "/settings", icon: Cog },
   { label: "Audit Log", to: "/audit-log", icon: ClipboardList },
@@ -23,44 +56,98 @@ export function AppSidebar() {
   const { state } = useScraperContext();
 
   return (
-    <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar min-h-screen">
-      <div className="p-5 border-b border-border">
-        <h1 className="text-base font-semibold text-foreground tracking-tight">SOL9X Monitor</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Social Media</p>
-      </div>
-
-      <nav className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => {
-          const active = location.pathname === item.to;
-          return (
-            <RouterNavLink
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </RouterNavLink>
-          );
-        })}
-      </nav>
-
-      <div className="p-4 border-t border-border">
-            <div className="flex items-center gap-2">
-              <span className={cn("h-2 w-2 rounded-full", state.isRunning ? "bg-success animate-pulse-slow" : "bg-muted-foreground")} />
-              <span className="text-xs text-muted-foreground">
-                {state.isRunning ? "Scraper Running" : "Scraper Idle"}
-              </span>
-            </div>
+    <Sidebar collapsible="icon" className="border-r border-border/50">
+      <SidebarHeader className="h-16 flex items-center px-4 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 flex items-center justify-center shrink-0">
+            <img src="/small -logo-symbol.png" alt="SOL9X Logo" className="h-full w-full object-contain" />
           </div>
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+            <span className="text-xs font-black tracking-tighter uppercase leading-none">SOL9X</span>
+            <span className="text-[9px] text-muted-foreground font-bold tracking-[0.15em] uppercase mt-0.5">OSINT Monitor</span>
+          </div>
+        </div>
+      </SidebarHeader>
 
-          <div className="p-4 border-t border-border mt-auto">
-            <UserAccountBanner />
-      </div>
-    </aside>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Primary Intelligence</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === item.to}
+                    tooltip={item.label}
+                  >
+                    <RouterNavLink to={item.to} className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </RouterNavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Analysis & Reporting</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {secondaryItems.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === item.to}
+                    tooltip={item.label}
+                  >
+                    <RouterNavLink to={item.to} className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </RouterNavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {bottomItems.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname === item.to}
+                    tooltip={item.label}
+                  >
+                    <RouterNavLink to={item.to} className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </RouterNavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="p-4 border-t border-border/50">
+        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
+          <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse shrink-0" />
+          <span className="text-[10px] font-black uppercase tracking-widest group-data-[collapsible=icon]:hidden">
+            Systems {state.isRunning ? "Active" : "Idle"}
+          </span>
+        </div>
+        <div className="group-data-[collapsible=icon]:hidden mt-2">
+          <UserAccountBanner />
+        </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 }
 
