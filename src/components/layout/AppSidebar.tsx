@@ -143,7 +143,30 @@ export function AppSidebar() {
             Systems {state.isRunning ? "Active" : "Idle"}
           </span>
         </div>
+        <div className="group-data-[collapsible=icon]:hidden mt-2">
+          <UserAccountBanner />
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
 }
+
+    function UserAccountBanner() {
+      const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const user = userJson ? JSON.parse(userJson) : null;
+
+      function logout() {
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+
+      return (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium text-foreground">{user ? user.username : 'Guest'}</div>
+            <div className="text-xs text-muted-foreground">{user ? user.email : 'Not signed in'}</div>
+          </div>
+          <button onClick={logout} className="text-sm text-destructive hover:underline">Logout</button>
+        </div>
+      );
+    }

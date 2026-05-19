@@ -15,7 +15,9 @@
       "Bash(npm uninstall *)",
       "Bash(rm \"C:\\\\Users\\\\ASUS\\\\selenium-work\\\\NewProject\\\\src\\\\com\\\\scraperhub\\\\service\\\\PostGeoService.java\")",
       "Bash(rm \"C:\\\\Users\\\\ASUS\\\\selenium-work\\\\NewProject\\\\src\\\\com\\\\scraperhub\\\\repository\\\\PostGeoRepository.java\")",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(Get-ChildItem -Path \"C:/Users/ASUS/selenium-work/NewProject\" -Recurse -File)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

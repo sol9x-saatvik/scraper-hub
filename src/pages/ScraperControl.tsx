@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 
 const IG_HASHTAG_REGEX = /^[A-Za-z0-9_]+$/;
-const TW_KEYWORD_REGEX = /^[A-Za-z0-9_]+$/;
+const TW_KEYWORD_REGEX = /^[A-Za-z0-9_ ]+$/;
 const IG_PROFILE_REGEX = /^(?!.*\.$)[A-Za-z0-9._]+$/;
 const TW_PROFILE_REGEX = /^[A-Za-z0-9_]+$/;
 

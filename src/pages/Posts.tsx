@@ -647,6 +647,16 @@ export default function Posts() {
                           );
                         }
 
+                        const parseLikes = (val: any): string => {
+                          if (val === null || val === undefined) return "0";
+                          const str = String(val).trim().toUpperCase();
+                          if (str.endsWith("M")) return (parseFloat(str) * 1_000_000).toLocaleString();
+                          if (str.endsWith("K")) return (parseFloat(str) * 1_000).toLocaleString();
+                          const num = Number(str.replace(/,/g, ""));
+                          if (isNaN(num)) return "0";
+                          return num.toLocaleString();
+                        };
+
                         const rawVal = p[col.key] ?? "—";
                         
                         return (
@@ -671,7 +681,7 @@ export default function Posts() {
                               </Badge>
                             ) : col.key === "likes" || col.key === "upvotes" ? (
                               <span className="font-bold text-foreground">
-                                {isNaN(Number(rawVal)) ? 0 : Number(rawVal).toLocaleString()}
+                                {parseLikes(rawVal)}
                               </span>
                             ) : (
                               <span className={cn(

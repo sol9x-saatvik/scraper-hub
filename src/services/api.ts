@@ -291,6 +291,14 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json();
 }
 
+function buildQuery(params?: { search?: string; minLikes?: number }): string {
+  const q = new URLSearchParams();
+  if (params?.search) q.set("search", params.search);
+  if (params?.minLikes) q.set("minLikes", String(params.minLikes));
+  const str = q.toString();
+  return str ? `?${str}` : "";
+}
+
 export async function getAllPosts(params?: { search?: string; minLikes?: number }): Promise<AllPost[]> {
   const query = new URLSearchParams();
   if (params?.search) query.append("search", params.search);
@@ -298,48 +306,48 @@ export async function getAllPosts(params?: { search?: string; minLikes?: number 
   return fetchJson(`${API_BASE}/posts/all?${query}`);
 }
 
-export async function getInstaExplorePosts(): Promise<InstaExplorePost[]> {
-  return fetchJson(`${API_BASE}/posts/instagram/explore`);
+export async function getInstaExplorePosts(params?: { search?: string; minLikes?: number }): Promise<InstaExplorePost[]> {
+  return fetchJson(`${API_BASE}/posts/instagram/explore${buildQuery(params)}`);
 }
 
-export async function getInstaSearchPosts(): Promise<InstaSearchPost[]> {
-  return fetchJson(`${API_BASE}/posts/instagram/search`);
+export async function getInstaSearchPosts(params?: { search?: string; minLikes?: number }): Promise<InstaSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/instagram/search${buildQuery(params)}`);
 }
 
-export async function getInstaProfilePosts(): Promise<InstaProfilePost[]> {
-  return fetchJson(`${API_BASE}/posts/instagram/profile`);
+export async function getInstaProfilePosts(params?: { search?: string; minLikes?: number }): Promise<InstaProfilePost[]> {
+  return fetchJson(`${API_BASE}/posts/instagram/profile${buildQuery(params)}`);
 }
 
-export async function getTwitterHomePosts(): Promise<TwitterHomePost[]> {
-  return fetchJson(`${API_BASE}/posts/twitter/home`);
+export async function getTwitterHomePosts(params?: { search?: string; minLikes?: number }): Promise<TwitterHomePost[]> {
+  return fetchJson(`${API_BASE}/posts/twitter/home${buildQuery(params)}`);
 }
 
-export async function getTwitterSearchPosts(): Promise<TwitterSearchPost[]> {
-  return fetchJson(`${API_BASE}/posts/twitter/search`);
+export async function getTwitterSearchPosts(params?: { search?: string; minLikes?: number }): Promise<TwitterSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/twitter/search${buildQuery(params)}`);
 }
 
-export async function getTwitterProfilePosts(): Promise<TwitterProfilePost[]> {
-  return fetchJson(`${API_BASE}/posts/twitter/profile`);
+export async function getTwitterProfilePosts(params?: { search?: string; minLikes?: number }): Promise<TwitterProfilePost[]> {
+  return fetchJson(`${API_BASE}/posts/twitter/profile${buildQuery(params)}`);
 }
 
-export async function getFacebookExplorePosts(): Promise<FacebookExplorePost[]> {
-  return fetchJson(`${API_BASE}/posts/facebook/explore`);
+export async function getFacebookExplorePosts(params?: { search?: string; minLikes?: number }): Promise<FacebookExplorePost[]> {
+  return fetchJson(`${API_BASE}/posts/facebook/explore${buildQuery(params)}`);
 }
 
-export async function getFacebookSearchPosts(): Promise<FacebookSearchPost[]> {
-  return fetchJson(`${API_BASE}/posts/facebook/search`);
+export async function getFacebookSearchPosts(params?: { search?: string; minLikes?: number }): Promise<FacebookSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/facebook/search${buildQuery(params)}`);
 }
 
-export async function getFacebookProfilePosts(): Promise<FacebookProfilePost[]> {
-  return fetchJson(`${API_BASE}/posts/facebook/profile`);
+export async function getFacebookProfilePosts(params?: { search?: string; minLikes?: number }): Promise<FacebookProfilePost[]> {
+  return fetchJson(`${API_BASE}/posts/facebook/profile${buildQuery(params)}`);
 }
 
-export async function getRedditHomePosts(): Promise<RedditHomePost[]> {
-  return fetchJson(`${API_BASE}/posts/reddit/home`);
+export async function getRedditHomePosts(params?: { search?: string; minLikes?: number }): Promise<RedditHomePost[]> {
+  return fetchJson(`${API_BASE}/posts/reddit/home${buildQuery(params)}`);
 }
 
-export async function getRedditSearchPosts(): Promise<RedditSearchPost[]> {
-  return fetchJson(`${API_BASE}/posts/reddit/search`);
+export async function getRedditSearchPosts(params?: { search?: string; minLikes?: number }): Promise<RedditSearchPost[]> {
+  return fetchJson(`${API_BASE}/posts/reddit/search${buildQuery(params)}`);
 }
 
 export async function getWebSearchPosts(keyword?: string): Promise<WebSearchPost[]> {
@@ -348,8 +356,10 @@ export async function getWebSearchPosts(keyword?: string): Promise<WebSearchPost
 }
 
 export async function getDashboardStats(platform?: string): Promise<DashboardStats> {
-  const query = platform ? `?platform=${platform}` : "";
-  return fetchJson(`${API_BASE}/dashboard/stats${query}`);
+  const params = new URLSearchParams();
+  if (platform && platform !== "all") params.set("platform", platform);
+  const q = params.toString() ? `?${params.toString()}` : "";
+  return fetchJson(`${API_BASE}/dashboard/stats${q}`);
 }
 
 // ── Monitoring API ──
