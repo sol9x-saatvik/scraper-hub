@@ -55,9 +55,11 @@ export default function Login() {
       <div className="auth-shell">
         <aside className="auth-aside">
           <div className="auth-brand">
-            <span className="auth-brand-icon">S</span>
+            <span className="auth-brand-mark" aria-hidden="true">
+              <img src="/SOl9X Logo.svg" alt="" />
+            </span>
             <div>
-              <span>SCRAPER HUB</span>
+              <span className="auth-brand-name">ARGUS</span>
             </div>
           </div>
           <div className="auth-panel-copy">
