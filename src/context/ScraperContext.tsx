@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import { getAllPosts, getPostId, saveGeoPost, type AllPost, type PostAnalysis, type PostGeo } from "@/services/api";
+import { getAllPosts, getPostId, saveGeoPost, startScraper as apiStartScraper, type AllPost, type PostAnalysis, type PostGeo } from "@/services/api";
 
 export type Platform = "INSTAGRAM" | "TWITTER" | "FACEBOOK" | "REDDIT";
 
@@ -88,9 +88,18 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 // ── localStorage helpers ────────────────────────────────────────────────────
 const STORAGE_KEY = "scraper_post_analyses";
 
+function accountStorageKey(baseKey: string): string {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+    return user?.id ? `${baseKey}_${user.id}` : baseKey;
+  } catch {
+    return baseKey;
+  }
+}
+
 function loadAnalysesFromStorage(): Map<string, PostAnalysis> {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(accountStorageKey(STORAGE_KEY));
     if (!stored) return new Map();
     const entries: [string, PostAnalysis][] = JSON.parse(stored);
     return new Map(entries);
@@ -101,7 +110,7 @@ function loadAnalysesFromStorage(): Map<string, PostAnalysis> {
 
 function saveAnalysesToStorage(map: Map<string, PostAnalysis>): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(map.entries())));
+    localStorage.setItem(accountStorageKey(STORAGE_KEY), JSON.stringify(Array.from(map.entries())));
   } catch {}
 }
 
@@ -596,12 +605,7 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
     };
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api'}/scraper/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      await apiStartScraper(requestBody);
       setState((prev) => ({
         ...prev,
         isRunning: true,
@@ -655,12 +659,7 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
 
     setState((prev) => ({ ...prev, isWebSearchRunning: true }));
     try {
-      const res = await fetch(`${API_BASE}/scraper/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("Failed to start web search");
+      await apiStartScraper(payload);
     } catch (err) {
       console.error("Failed to start web search:", err);
     } finally {

@@ -1,5 +1,5 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,12 +7,28 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import "../auth.css";
 
-export default function Login() {
-  const { register, handleSubmit } = useForm();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+type LoginForm = {
+  username: string;
+  password: string;
+};
 
-  async function onSubmit(data: any) {
+export default function Login() {
+  const { register, handleSubmit } = useForm<LoginForm>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/";
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") ?? "null");
+      if (user?.id && user?.username) navigate("/", { replace: true });
+    } catch {
+      localStorage.removeItem("user");
+    }
+  }, [navigate]);
+
+  async function onSubmit(data: LoginForm) {
     try {
       const res = await fetch("http://localhost:8081/api/auth/login", {
         method: "POST",
@@ -28,7 +44,7 @@ export default function Login() {
 
       localStorage.setItem("user", JSON.stringify(body));
       toast({ title: "Login successful" });
-      navigate("/");
+      navigate(from, { replace: true });
     } catch (e) {
       toast({ title: "Login error", description: String(e) });
     }

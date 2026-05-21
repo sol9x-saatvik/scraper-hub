@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useMonitoredUsers } from "@/hooks/useMonitoredUsers";
 import { useQuery } from "@tanstack/react-query";
-import { getAllPosts } from "@/services/api";
+import { getAllPosts, startScraper as apiStartScraper } from "@/services/api";
 import type { MonitoredUser } from "@/services/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +32,6 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
-const API_BASE = "http://localhost:8081/api";
 
 function cleanUsername(username: string): string {
   return username.replace(/^@+/, "");
@@ -52,11 +50,20 @@ export interface FlaggedPost {
 }
 
 function loadFlaggedPosts(): FlaggedPost[] {
-  try { return JSON.parse(localStorage.getItem("flaggedPosts") ?? "[]"); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(accountStorageKey("flaggedPosts")) ?? "[]"); } catch { return []; }
 }
 
 function saveFlaggedPosts(posts: FlaggedPost[]): void {
-  localStorage.setItem("flaggedPosts", JSON.stringify(posts));
+  localStorage.setItem(accountStorageKey("flaggedPosts"), JSON.stringify(posts));
+}
+
+function accountStorageKey(baseKey: string): string {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+    return user?.id ? `${baseKey}_${user.id}` : baseKey;
+  } catch {
+    return baseKey;
+  }
 }
 
 const SEED_USERS: Omit<MonitoredUser, "id" | "addedAt">[] = [
@@ -537,8 +544,7 @@ function ScrapeDialog({ user, lastPostDate, onClose }: any) {
         duration: mode === "duration" ? totalSeconds : 86400,
       };
       if (mode === "until_last" && lastPostDate) { payload.stopAtDate = lastPostDate; payload.untilLastPost = true; }
-      const res = await fetch(`${API_BASE}/scraper/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error();
+      await apiStartScraper(payload);
       toast.success(`Agent deployed for @${cleanUsername(user.username)}`);
       onClose();
     } catch {
