@@ -11,10 +11,19 @@ import type { AllPost } from "@/services/api";
 import type { FlaggedPost } from "@/pages/UserMonitoring";
 
 function loadFlaggedPosts(): FlaggedPost[] {
-  try { return JSON.parse(localStorage.getItem("flaggedPosts") ?? "[]"); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(accountStorageKey("flaggedPosts")) ?? "[]"); } catch { return []; }
 }
 function saveFlaggedPosts(posts: FlaggedPost[]): void {
-  localStorage.setItem("flaggedPosts", JSON.stringify(posts));
+  localStorage.setItem(accountStorageKey("flaggedPosts"), JSON.stringify(posts));
+}
+
+function accountStorageKey(baseKey: string): string {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+    return user?.id ? `${baseKey}_${user.id}` : baseKey;
+  } catch {
+    return baseKey;
+  }
 }
 
 interface PostModalProps {

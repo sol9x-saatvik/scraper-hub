@@ -153,7 +153,12 @@ export function AppSidebar() {
 
     function UserAccountBanner() {
       const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      const user = userJson ? JSON.parse(userJson) : null;
+      let user = null;
+      try {
+        user = userJson ? JSON.parse(userJson) : null;
+      } catch {
+        localStorage.removeItem('user');
+      }
 
       function logout() {
         localStorage.removeItem('user');

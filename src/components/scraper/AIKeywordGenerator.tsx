@@ -70,7 +70,7 @@ export function AIKeywordGenerator() {
       const cleaned = raw.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
       setChips(JSON.parse(cleaned));
     } catch (e) {
-      setError("Failed to generate keywords. Verify your Gemini API key.");
+      setError("Failed to generate keywords.");
     } finally {
       setLoading(false);
     }

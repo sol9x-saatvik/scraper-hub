@@ -165,6 +165,7 @@ export interface AllPost {
   // Reddit-specific (for modal)
   upvotes?: number;
   comments?: number;
+  accountId?: string;
 }
 
 export interface WebSearchPost {
@@ -177,6 +178,8 @@ export interface WebSearchPost {
   engine: string;
   status: "SUCCESS" | "FAILED" | "BLOCKED";
   scrapedAt: string;
+  accountId?: string;
+  accountUsername?: string;
 }
 
 export interface ScraperRequest {
@@ -195,6 +198,8 @@ export interface ScraperRequest {
   webSearchKeywords: string[];
   webSearchMaxResults: number;
   duration: number;
+  accountId?: string;
+  accountUsername?: string;
 }
 
 export type ViewType =
@@ -253,6 +258,7 @@ export interface MonitoredUser {
   addedAt?: string;
   harmfulRating: number; // 1–5
   notes?: string;
+  accountId?: string;
 }
 
 
@@ -276,6 +282,7 @@ export interface PostGeo {
   date: string;
   time: string;
   scrapedAt?: string;
+  accountId?: string;
 }
 
 export interface GeoCountry {
@@ -291,10 +298,28 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json();
 }
 
+function getCurrentAccount(): { id?: string; username?: string } {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return {};
+    const user = JSON.parse(raw);
+    return { id: user?.id, username: user?.username };
+  } catch {
+    return {};
+  }
+}
+
+function appendAccount(query: URLSearchParams): URLSearchParams {
+  const account = getCurrentAccount();
+  if (account.id) query.set("accountId", account.id);
+  return query;
+}
+
 function buildQuery(params?: { search?: string; minLikes?: number }): string {
   const q = new URLSearchParams();
   if (params?.search) q.set("search", params.search);
   if (params?.minLikes) q.set("minLikes", String(params.minLikes));
+  appendAccount(q);
   const str = q.toString();
   return str ? `?${str}` : "";
 }
@@ -303,6 +328,7 @@ export async function getAllPosts(params?: { search?: string; minLikes?: number 
   const query = new URLSearchParams();
   if (params?.search) query.append("search", params.search);
   if (params?.minLikes) query.append("minLikes", params.minLikes.toString());
+  appendAccount(query);
   return fetchJson(`${API_BASE}/posts/all?${query}`);
 }
 
@@ -351,13 +377,15 @@ export async function getRedditSearchPosts(params?: { search?: string; minLikes?
 }
 
 export async function getWebSearchPosts(keyword?: string): Promise<WebSearchPost[]> {
-  const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
-  return fetchJson(`${API_BASE}/posts/websearch${query}`);
+  const query = appendAccount(new URLSearchParams());
+  if (keyword) query.set("keyword", keyword);
+  return fetchJson(`${API_BASE}/posts/websearch?${query}`);
 }
 
 export async function getDashboardStats(platform?: string): Promise<DashboardStats> {
   const params = new URLSearchParams();
   if (platform && platform !== "all") params.set("platform", platform);
+  appendAccount(params);
   const q = params.toString() ? `?${params.toString()}` : "";
   return fetchJson(`${API_BASE}/dashboard/stats${q}`);
 }
@@ -365,14 +393,16 @@ export async function getDashboardStats(platform?: string): Promise<DashboardSta
 // ── Monitoring API ──
 
 export async function getMonitoredUsers(): Promise<MonitoredUser[]> {
-  return fetchJson(`${API_BASE}/monitoring/users`);
+  const query = appendAccount(new URLSearchParams());
+  return fetchJson(`${API_BASE}/monitoring/users?${query}`);
 }
 
 export async function addMonitoredUser(user: Partial<MonitoredUser>): Promise<MonitoredUser> {
+  const account = getCurrentAccount();
   const response = await fetch(`${API_BASE}/monitoring/users`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(user),
+    body: JSON.stringify({ ...user, accountId: user.accountId ?? account.id }),
   });
   if (!response.ok) throw new Error(`HTTP error ${response.status}`);
   return response.json();
@@ -402,29 +432,37 @@ export async function getGeoPosts(filters?: { platform?: string; country?: strin
   if (filters?.platform) query.append("platform", filters.platform);
   if (filters?.country) query.append("country", filters.country);
   if (filters?.keyword) query.append("keyword", filters.keyword);
+  appendAccount(query);
   return fetchJson(`${API_BASE}/geo/posts?${query}`);
 }
 
 export async function saveGeoPost(post: PostGeo): Promise<void> {
+  const account = getCurrentAccount();
   const response = await fetch(`${API_BASE}/geo/posts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(post),
+    body: JSON.stringify({ ...post, accountId: post.accountId ?? account.id }),
   });
   if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 }
 
 export async function getGeoCountries(): Promise<GeoCountry[]> {
-  return fetchJson(`${API_BASE}/geo/countries`);
+  const query = appendAccount(new URLSearchParams());
+  return fetchJson(`${API_BASE}/geo/countries?${query}`);
 }
 
 // ── Scraper API ──
 
 export async function startScraper(request: ScraperRequest): Promise<void> {
+  const account = getCurrentAccount();
   const response = await fetch(`${API_BASE}/scraper/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      accountId: request.accountId ?? account.id,
+      accountUsername: request.accountUsername ?? account.username,
+    }),
   });
   if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 }
