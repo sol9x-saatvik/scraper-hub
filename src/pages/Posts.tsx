@@ -198,6 +198,7 @@ const COLUMNS: Record<ViewType, { key: string; label: string; align?: "right" }[
     { key: "status", label: "Status" },
     { key: "snippet", label: "Snippet" },
     { key: "scrapedAt", label: "Timestamp" },
+    { key: "_viewPost", label: "Actions" },
   ],
 };
 
@@ -219,6 +220,27 @@ function derivePostId(post: AnyPost): string {
   const date = p.date ?? "";
   const time = p.time ?? "";
   return `${platform}_${user}_${date}_${time}`;
+}
+
+function postTimestamp(post: AnyPost): number {
+  const p = post as any;
+  const directTimestamp = p.scrapedAt ?? p.scraped_at ?? p.timestamp ?? p.createdAt;
+  if (directTimestamp) {
+    const parsed = Date.parse(String(directTimestamp));
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  const date = String(p.date ?? "").trim();
+  const time = String(p.time ?? "00:00:00").trim() || "00:00:00";
+  const parts = date.split("-");
+  if (parts.length === 3) {
+    const [first, second, third] = parts;
+    const normalizedDate = first.length === 4 ? `${first}-${second}-${third}` : `${third}-${second}-${first}`;
+    const parsed = Date.parse(`${normalizedDate}T${time}`);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  return 0;
 }
 
 export default function Posts() {
@@ -263,15 +285,7 @@ export default function Posts() {
         case "web-search": data = await getWebSearchPosts(); break;
         default: data = [];
       }
-      data.sort((a, b) => {
-        const parse = (post: any) => {
-          const d = (post.date || "").split("-");
-          // format is DD-MM-YYYY, convert to YYYY-MM-DD for correct sorting
-          const dateStr = d.length === 3 ? `${d[2]}-${d[1]}-${d[0]}` : "";
-          return `${dateStr}T${post.time || "00:00:00"}`;
-        };
-        return parse(b).localeCompare(parse(a));
-      });
+      data.sort((a, b) => postTimestamp(b) - postTimestamp(a));
       setRawPosts(data);
     } catch {
       setError("Intelligence server unreachable. Check connection.");
@@ -388,13 +402,21 @@ export default function Posts() {
   };
 
   const handleRowClick = (post: AnyPost) => {
-    if (isWebSearch) return;
     const p = post as any;
     if (!p.platform) {
-      if (viewType.startsWith("twitter")) p.platform = "Twitter";
+      if (viewType === "web-search") p.platform = "Web";
+      else if (viewType.startsWith("twitter")) p.platform = "Twitter";
       else if (viewType.startsWith("instagram")) p.platform = "Instagram";
       else if (viewType.startsWith("facebook")) p.platform = "Facebook";
       else if (viewType.startsWith("reddit")) p.platform = "Reddit";
+    }
+    if (viewType === "web-search") {
+      p.source = "Search";
+      p.user = p.url;
+      p.content = p.scrapedContent || p.snippet || p.title;
+      p.date = p.date || (p.scrapedAt ? new Date(p.scrapedAt).toLocaleDateString("en-GB").replace(/\//g, "-") : "");
+      p.time = p.time || (p.scrapedAt ? new Date(p.scrapedAt).toLocaleTimeString("en-GB", { hour12: false }) : "");
+      p.screenshot_path = p.screenshot_path || p.screenshotPath;
     }
     setSelectedPost(p);
     setModalOpen(true);
@@ -551,18 +573,16 @@ export default function Posts() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow className="hover:bg-transparent">
-                {!isWebSearch && (
-                  <>
-                    <TableHead className="w-12 text-center">
-                      <Checkbox
-                        checked={paginatedIds.length > 0 && paginatedIds.every((id) => selectedPostIds.has(id))}
-                        onCheckedChange={toggleAllOnPage}
-                        disabled={isAnalyzing || paginatedIds.length === 0}
-                      />
-                    </TableHead>
-                    <TableHead className="w-8" />
-                  </>
-                )}
+                <TableHead className="w-12 text-center">
+                  {!isWebSearch && (
+                    <Checkbox
+                      checked={paginatedIds.length > 0 && paginatedIds.every((id) => selectedPostIds.has(id))}
+                      onCheckedChange={toggleAllOnPage}
+                      disabled={isAnalyzing || paginatedIds.length === 0}
+                    />
+                  )}
+                </TableHead>
+                {!isWebSearch && <TableHead className="w-8" />}
                 {columns.map((col) => (
                   <TableHead key={col.key} className={cn("font-bold text-[11px] uppercase tracking-wider py-4", col.align === "right" && "text-right")}>
                     {col.key === "keyword" && availableKeywords.length > 0 ? (
@@ -616,13 +636,13 @@ export default function Posts() {
                       )}
                       onClick={() => handleRowClick(post)}
                     >
-                      {!isWebSearch && (
-                        <>
-                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        {!isWebSearch && (
                             <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(postId)} disabled={isAnalyzing} />
-                          </TableCell>
+                        )}
+                      </TableCell>
+                      {!isWebSearch && (
                           <TableCell className="text-center px-1"><AnalysisIndicator post={post} /></TableCell>
-                        </>
                       )}
                       
                       {columns.map((col) => {

@@ -147,7 +147,7 @@ export interface RedditSearchPost {
 }
 
 export interface AllPost {
-  platform: "Instagram" | "Twitter" | "Facebook" | "Reddit";
+  platform: "Instagram" | "Twitter" | "Facebook" | "Reddit" | "Web";
   source: "Explore" | "Search" | "Home" | "Profile";
   keyword: string | null;
   user: string;
@@ -175,6 +175,8 @@ export interface WebSearchPost {
   url: string;
   snippet: string;
   scrapedContent: string;
+  screenshotPath?: string | null;
+  screenshot_path?: string | null;
   engine: string;
   status: "SUCCESS" | "FAILED" | "BLOCKED";
   scrapedAt: string;
