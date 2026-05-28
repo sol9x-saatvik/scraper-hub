@@ -87,6 +87,7 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
   const platform: string =
     post.platform ??
     (post.handle || post.tweet !== undefined ? "Twitter" : "Instagram");
+  const isWeb = platform === "Web" || post.scrapedContent !== undefined || post.scrapedAt !== undefined;
   const source: string = post.source ?? "—";
   const keyword: string =
     source === "Profile" || source === "PROFILE"
@@ -210,6 +211,7 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                   <span className={cn(
                     "text-xs font-medium px-2 py-0.5 rounded-full",
                     platform === "Twitter" ? "bg-primary/15 text-primary" :
+                    platform === "Web" ? "bg-emerald-500/15 text-emerald-600" :
                     platform === "Facebook" ? "bg-blue-500/15 text-blue-500" :
                     platform === "Reddit" ? "bg-orange-500/15 text-orange-500" :
                     "bg-accent text-accent-foreground"
@@ -224,18 +226,28 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                 {/* Info rows */}
                 <div className="space-y-2 text-sm">
                   <Row label="Keyword / Profile" value={keyword} />
-                  <Row label="User" value={user} mono />
+                  {isWeb && post.title && <Row label="Title" value={post.title} />}
+                  <Row label={isWeb ? "Website" : "User"} value={user} mono />
+                  {isWeb && post.engine && <Row label="Engine" value={post.engine} />}
+                  {isWeb && post.status && <Row label="Status" value={post.status} />}
                   <Row label="Date" value={`${post.date ?? "—"} ${post.time ?? ""}`} />
                 </div>
 
+                {isWeb && post.snippet && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Search Snippet</p>
+                    <p className="text-sm text-card-foreground leading-relaxed whitespace-pre-wrap">{post.snippet}</p>
+                  </div>
+                )}
+
                 {/* Content */}
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Content</p>
+                  <p className="text-xs text-muted-foreground mb-1">{isWeb ? "Scraped Content" : "Content"}</p>
                   <p className="text-sm text-card-foreground leading-relaxed whitespace-pre-wrap">{content}</p>
                 </div>
 
                 {/* Engagement */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {!isWeb && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {isReddit ? (
                     <>
                       <Stat label="Upvotes" value={post.upvotes} />
@@ -251,7 +263,7 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                       <Stat label="Views" value={post.views} />
                     </>
                   )}
-                </div>
+                </div>}
 
                 {/* Video */}
                 {videoPath && (
@@ -289,7 +301,7 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                     <>
                       <Button size="sm" asChild>
                         <a href={url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Go To Post
+                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> {isWeb ? "Go To Website" : "Go To Post"}
                         </a>
                       </Button>
                       <Button size="sm" variant="outline" onClick={copyUrl}>
@@ -297,25 +309,29 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                       </Button>
                     </>
                   )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={alreadyMonitored}
-                    onClick={handleAddToMonitoring}
-                    className={cn(alreadyMonitored && "opacity-60 cursor-not-allowed")}
-                  >
-                    <ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
-                    {alreadyMonitored ? "Already Monitored" : "Add to Monitoring"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={isFlagged ? "default" : "outline"}
-                    onClick={toggleFlag}
-                    className={cn(isFlagged && "bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border-yellow-500/40")}
-                  >
-                    {isFlagged ? <FlagOff className="h-3.5 w-3.5 mr-1.5" /> : <Flag className="h-3.5 w-3.5 mr-1.5" />}
-                    {isFlagged ? "Unflag Post" : "Flag Post"}
-                  </Button>
+                  {!isWeb && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={alreadyMonitored}
+                        onClick={handleAddToMonitoring}
+                        className={cn(alreadyMonitored && "opacity-60 cursor-not-allowed")}
+                      >
+                        <ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
+                        {alreadyMonitored ? "Already Monitored" : "Add to Monitoring"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={isFlagged ? "default" : "outline"}
+                        onClick={toggleFlag}
+                        className={cn(isFlagged && "bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border-yellow-500/40")}
+                      >
+                        {isFlagged ? <FlagOff className="h-3.5 w-3.5 mr-1.5" /> : <Flag className="h-3.5 w-3.5 mr-1.5" />}
+                        {isFlagged ? "Unflag Post" : "Flag Post"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </TabsContent>
