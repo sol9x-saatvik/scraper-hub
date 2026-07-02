@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Search, ChevronLeft, ChevronRight, ExternalLink, ChevronDown, Sparkles, Loader2, ListFilter, MoreHorizontal, FilterX } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ExternalLink, ChevronDown, Sparkles, Loader2, ListFilter, MoreHorizontal, FilterX, FileText } from "lucide-react";
 import { toast } from "sonner";
 import {
   type ViewType,
@@ -67,6 +67,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import PostModal from "@/components/posts/PostModal";
 import { useScraperContext } from "@/context/ScraperContext";
+import { useGenerateReport } from "@/hooks/useGenerateReport";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 12;
@@ -247,6 +249,7 @@ export default function Posts() {
   const location = useLocation();
   const { state, analyzeAllPosts, getPostAnalysis } = useScraperContext();
   const { isAnalyzing, analysisProgress, isRunning } = state;
+  const { generate: generateReport, isGenerating: isGeneratingReport } = useGenerateReport();
 
   const [viewType, setViewType] = useState<ViewType>("all");
   const [rawPosts, setRawPosts] = useState<AnyPost[]>([]);
@@ -451,6 +454,29 @@ export default function Posts() {
         </div>
         
         <div className="flex items-center gap-2">
+          {isRunning ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block">
+                  <Button variant="outline" disabled className="gap-2 font-semibold">
+                    <FileText className="h-4 w-4" />
+                    Generate Session Report
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Stop the scraper before generating a report</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="outline"
+              disabled={isGeneratingReport}
+              onClick={() => generateReport()}
+              className="gap-2 font-semibold"
+            >
+              {isGeneratingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              Generate Session Report
+            </Button>
+          )}
           {!isWebSearch && (
             <>
               <Button

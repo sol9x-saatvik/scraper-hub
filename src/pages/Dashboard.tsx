@@ -1,12 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Users, Link2, Heart, Globe, MapPin, Loader2 } from "lucide-react";
+import { FileText, Users, Link2, Heart, Globe, MapPin, Loader2, EyeOff } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { getDashboardStats, type DashboardStats } from "@/services/api";
+import { getDashboardStats, getDarkWebStats, type DashboardStats, type DarkWebStats } from "@/services/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapErrorBoundary } from "@/components/map/MapErrorBoundary";
 import { useGeoAnalysis } from "@/hooks/useGeoAnalysis";
@@ -49,6 +49,7 @@ type PlatformFilter = "all" | "twitter" | "instagram";
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [darkwebStats, setDarkwebStats] = useState<DarkWebStats | null>(null);
   const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -63,6 +64,10 @@ export default function Dashboard() {
         setStats(null);
       });
   }, [platform]);
+
+  useEffect(() => {
+    getDarkWebStats().then(setDarkwebStats).catch(() => {});
+  }, []);
 
   if (error) {
     return (
@@ -255,6 +260,52 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dark Web Intelligence */}
+      <Card className="border-purple-500/20 bg-gradient-to-r from-purple-950/10 to-transparent">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-5">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <EyeOff className="h-4 w-4 text-purple-400" />
+            Dark Web Intelligence
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/darkweb")}
+            className="h-7 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-950/20"
+          >
+            View Intelligence →
+          </Button>
+        </CardHeader>
+        <CardContent className="px-5 pb-4">
+          {darkwebStats && (darkwebStats.totalInvestigations > 0) ? (
+            <div className="flex flex-wrap gap-8">
+              <div>
+                <div className="text-2xl font-bold text-purple-300">
+                  {darkwebStats.totalInvestigations}
+                </div>
+                <div className="text-xs text-muted-foreground">Investigations</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-purple-300">
+                  {darkwebStats.totalSources}
+                </div>
+                <div className="text-xs text-muted-foreground">Sources Scraped</div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate max-w-xs">
+                  {darkwebStats.latestQuery || "—"}
+                </div>
+                <div className="text-xs text-muted-foreground">Latest Query</div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No dark web investigations ingested yet — visit the page to sync from Robin.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Geographic Intelligence Map */}
       <Card>

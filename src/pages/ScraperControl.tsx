@@ -47,6 +47,7 @@ export default function ScraperControl() {
 
   const [newKeyword, setNewKeyword] = useState("");
   const [keywordPlatform, setKeywordPlatform] = useState<Platform>("INSTAGRAM");
+  const [kwSelected, setKwSelected] = useState<Set<string>>(new Set());
   const [newInstaProfile, setNewInstaProfile] = useState("");
   const [newTwitterProfile, setNewTwitterProfile] = useState("");
   const [newWebSearchKeyword, setNewWebSearchKeyword] = useState("");
@@ -65,6 +66,26 @@ export default function ScraperControl() {
 
   const instaProfileValid = newInstaProfile.trim().length > 0 && IG_PROFILE_REGEX.test(newInstaProfile.trim());
   const twitterProfileValid = newTwitterProfile.trim().length > 0 && TW_PROFILE_REGEX.test(newTwitterProfile.trim());
+
+  const kwKey = (platform: Platform, value: string) => `${platform}:${value}`;
+
+  const toggleKwSelect = (key: string) => {
+    setKwSelected(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const removeSelectedKeywords = () => {
+    kwSelected.forEach(key => {
+      const colon = key.indexOf(":");
+      const platform = key.slice(0, colon) as Platform;
+      const value = key.slice(colon + 1);
+      removeKeyword(platform, value);
+    });
+    setKwSelected(new Set());
+  };
 
   const handleAddKeyword = () => {
     if (keywordValid) {
@@ -298,20 +319,65 @@ export default function ScraperControl() {
                 </div>
               </div>
 
+              {/* Select All toolbar — only shown when not running and keywords exist */}
+              {!isRunning && keywords.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="kw-select-all"
+                      checked={kwSelected.size === keywords.length}
+                      onCheckedChange={(checked) =>
+                        setKwSelected(checked ? new Set(keywords.map(k => kwKey(k.platform, k.value))) : new Set())
+                      }
+                    />
+                    <Label htmlFor="kw-select-all" className="text-sm text-muted-foreground cursor-pointer select-none">
+                      Select All
+                    </Label>
+                  </div>
+                  {kwSelected.size > 0 && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={removeSelectedKeywords}
+                      className="h-7 text-xs gap-1.5"
+                    >
+                      <X className="h-3 w-3" />
+                      Remove {kwSelected.size} selected
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2 min-h-[40px] p-3 rounded-md bg-accent/20 border border-dashed border-border">
-                {keywords.map((k, i) => (
-                  <Badge key={i} variant="secondary" className="pl-1 pr-1.5 py-1 gap-2 border border-border">
-                    <Badge className={cn("px-1.5 py-0 text-[9px] uppercase", k.platform === "INSTAGRAM" ? "bg-accent text-accent-foreground" : "bg-primary/20 text-primary hover:bg-primary/20")}>
-                      {k.platform === "INSTAGRAM" ? "IG" : "TW"}
+                {keywords.map((k, i) => {
+                  const key = kwKey(k.platform, k.value);
+                  return (
+                    <Badge key={i} variant="secondary" className="pl-1 pr-1.5 py-1 gap-2 border border-border">
+                      {!isRunning && (
+                        <Checkbox
+                          checked={kwSelected.has(key)}
+                          onCheckedChange={() => toggleKwSelect(key)}
+                          className="h-3 w-3 shrink-0"
+                        />
+                      )}
+                      <Badge className={cn("px-1.5 py-0 text-[9px] uppercase", k.platform === "INSTAGRAM" ? "bg-accent text-accent-foreground" : "bg-primary/20 text-primary hover:bg-primary/20")}>
+                        {k.platform === "INSTAGRAM" ? "IG" : "TW"}
+                      </Badge>
+                      <span className="font-medium">{k.value}</span>
+                      {!isRunning && (
+                        <button
+                          onClick={() => {
+                            removeKeyword(k.platform, k.value);
+                            setKwSelected(prev => { const next = new Set(prev); next.delete(key); return next; });
+                          }}
+                          className="hover:text-destructive transition-colors rounded-full hover:bg-background p-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
                     </Badge>
-                    <span className="font-medium">{k.value}</span>
-                    {!isRunning && (
-                      <button onClick={() => removeKeyword(k.platform, k.value)} className="hover:text-destructive transition-colors rounded-full hover:bg-background p-0.5">
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </Badge>
-                ))}
+                  );
+                })}
                 {keywords.length === 0 && <span className="text-xs text-muted-foreground flex items-center justify-center w-full">No keywords active</span>}
               </div>
             </CardContent>

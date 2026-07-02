@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Globe,
   Crosshair,
+  EyeOff,
   type LucideIcon,
   Monitor
 } from "lucide-react";
@@ -30,7 +31,7 @@ import {
   SidebarGroupContent,
 } from "@/components/ui/sidebar";
 
-const navItems: { label: string; to: string; icon: LucideIcon }[] = [
+const navItems: { label: string; to: string; icon: LucideIcon; iconClassName?: string }[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
   { label: "Investigate", to: "/investigate", icon: Crosshair },
   { label: "Scraper Control", to: "/scraper", icon: Settings },
@@ -38,11 +39,13 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Target Monitoring", to: "/monitoring", icon: ShieldAlert },
 ];
 
-const secondaryItems: { label: string; to: string; icon: LucideIcon }[] = [
+const secondaryItems: { label: string; to: string; icon: LucideIcon; iconClassName?: string }[] = [
   { label: "Alerts", to: "/alerts", icon: Bell },
+  { label: "Reports", to: "/reports", icon: FileText },
   { label: "Case Management", to: "/cases", icon: Briefcase },
   { label: "Analytics & Report", to: "/analytics", icon: BarChart2 },
   { label: "Geo Intelligence", to: "/map", icon: Globe },
+  { label: "Dark Web Intel", to: "/darkweb", icon: EyeOff, iconClassName: "text-purple-400" },
 ];
 
 const bottomItems: { label: string; to: string; icon: LucideIcon }[] = [
@@ -104,7 +107,7 @@ export function AppSidebar() {
                     tooltip={item.label}
                   >
                     <RouterNavLink to={item.to} className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className={cn("h-4 w-4", item.iconClassName)} />
                       <span>{item.label}</span>
                     </RouterNavLink>
                   </SidebarMenuButton>

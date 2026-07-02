@@ -245,6 +245,8 @@ export interface PostAnalysis {
   suggestMonitoring: boolean;
   monitoringReason: string | null;
   analyzedAt: string; // ISO timestamp
+  threatLevel?: "low" | "medium" | "high";
+  summary?: string;
 }
 
 export function getPostId(post: AllPost): string {
@@ -453,6 +455,63 @@ export async function getGeoCountries(): Promise<GeoCountry[]> {
   return fetchJson(`${API_BASE}/geo/countries?${query}`);
 }
 
+// ── Dark Web Intelligence types ──
+
+export interface DarkWebSource {
+  title: string;
+  link: string;
+}
+
+export interface DarkWebInvestigation {
+  id: string;
+  timestamp: string;
+  query: string;
+  refinedQuery: string;
+  model: string;
+  preset: string;
+  sources: DarkWebSource[];
+  summary: string;
+  fileName: string;
+  ingestedAt: string;
+}
+
+export interface DarkWebStats {
+  totalInvestigations: number;
+  totalSources: number;
+  latestQuery: string;
+  latestTimestamp: string;
+}
+
+// ── Dark Web Intelligence API ──
+
+export async function getDarkWebInvestigations(): Promise<DarkWebInvestigation[]> {
+  return fetchJson(`${API_BASE}/darkweb/investigations`);
+}
+
+export async function getDarkWebInvestigation(id: string): Promise<DarkWebInvestigation> {
+  return fetchJson(`${API_BASE}/darkweb/investigations/${id}`);
+}
+
+export async function triggerDarkWebIngest(): Promise<{ newFiles: number }> {
+  const response = await fetch(`${API_BASE}/darkweb/ingest`, { method: "POST" });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  return response.json();
+}
+
+export async function getDarkWebStats(): Promise<DarkWebStats> {
+  return fetchJson(`${API_BASE}/darkweb/stats`);
+}
+
+export async function triggerDarkWebSearch(query: string): Promise<{ status: string; message: string }> {
+  const response = await fetch(`${API_BASE}/darkweb/search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  return response.json();
+}
+
 // ── Scraper API ──
 
 export async function startScraper(request: ScraperRequest): Promise<void> {
@@ -473,5 +532,150 @@ export async function stopScraper(): Promise<void> {
   const response = await fetch(`${API_BASE}/scraper/stop`, {
     method: "POST",
   });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+}
+
+// ── Session Reports ──
+
+export interface LastSessionInfo {
+  lastStartedAt: string | null;
+  keywords: string[];
+  platforms: string[];
+}
+
+export interface PreparedPost {
+  id: string;
+  platform: string;
+  source: string;
+  keyword: string | null;
+  author: string;
+  authorName: string;
+  content: string;
+  url: string;
+  timestamp: string;
+  scrapedAt: string;
+  engagement: {
+    likes?: number;
+    comments?: number;
+    shares?: number;
+    views?: number;
+  };
+}
+
+export interface PreparedPostsResult {
+  posts: PreparedPost[];
+  countsByPlatform: Record<string, number>;
+  totalCount: number;
+  truncated: boolean;
+}
+
+export interface ReportData {
+  executive_summary: string;
+  threat_assessment: {
+    overall_level: "low" | "medium" | "high" | "critical";
+    harmful_posts_count: number;
+    key_concerns: string[];
+  };
+  sentiment_breakdown: {
+    positive_percentage: number;
+    negative_percentage: number;
+    neutral_percentage: number;
+    dominant_emotions: string[];
+  };
+  key_narratives: Array<{
+    theme: string;
+    description: string;
+    post_count: number;
+    example_post_ids: string[];
+  }>;
+  notable_actors: Array<{
+    username: string;
+    platform: string;
+    why_notable: string;
+    suggested_action: string;
+  }>;
+  geographic_signals: Array<{
+    location: string;
+    context: string;
+    post_ids: string[];
+  }>;
+  cross_platform_patterns: string;
+  flagged_posts: Array<{
+    post_id: string;
+    platform: string;
+    author: string;
+    reason: string;
+    severity: "low" | "medium" | "high" | "critical";
+  }>;
+  recommended_actions: string[];
+}
+
+export interface SessionReport {
+  id: string;
+  accountId: string;
+  generatedAt: string;
+  sessionStart: string;
+  sessionEnd: string;
+  postsAnalyzedCount: number;
+  postsByPlatform: Record<string, number>;
+  keywords: string[];
+  platforms: string[];
+  reportData: ReportData;
+  geminiModel: string;
+}
+
+export interface SaveSessionReportPayload {
+  accountId: string;
+  sessionStart: string;
+  sessionEnd: string;
+  postsAnalyzedCount: number;
+  postsByPlatform: Record<string, number>;
+  keywords: string[];
+  platforms: string[];
+  reportData: ReportData;
+  geminiModel: string;
+}
+
+export async function getLastSessionInfo(accountId: string): Promise<LastSessionInfo> {
+  const q = new URLSearchParams({ accountId });
+  return fetchJson(`${API_BASE}/reports/last-session-info?${q}`);
+}
+
+export async function prepareSessionPosts(accountId: string): Promise<PreparedPostsResult> {
+  const response = await fetch(`${API_BASE}/reports/prepare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accountId }),
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `HTTP error ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveSessionReport(payload: SaveSessionReportPayload): Promise<SessionReport> {
+  const response = await fetch(`${API_BASE}/reports/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  return response.json();
+}
+
+export async function listSessionReports(accountId: string): Promise<SessionReport[]> {
+  const q = new URLSearchParams({ accountId });
+  return fetchJson(`${API_BASE}/reports?${q}`);
+}
+
+export async function getSessionReport(id: string, accountId: string): Promise<SessionReport> {
+  const q = new URLSearchParams({ accountId });
+  return fetchJson(`${API_BASE}/reports/${id}?${q}`);
+}
+
+export async function deleteSessionReport(id: string, accountId: string): Promise<void> {
+  const q = new URLSearchParams({ accountId });
+  const response = await fetch(`${API_BASE}/reports/${id}?${q}`, { method: "DELETE" });
   if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 }

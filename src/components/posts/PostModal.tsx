@@ -357,6 +357,28 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                     </div>
                   </div>
 
+                  {/* Threat Level */}
+                  {analysis.threatLevel && (
+                    <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Threat Level</p>
+                      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
+                        analysis.threatLevel === "high" ? "bg-red-100 text-red-700" :
+                        analysis.threatLevel === "medium" ? "bg-yellow-100 text-yellow-700" :
+                        "bg-green-100 text-green-700"
+                      )}>
+                        {analysis.threatLevel.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* AI Summary */}
+                  {analysis.summary && (
+                    <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Summary</p>
+                      <p className="text-sm text-foreground">{analysis.summary}</p>
+                    </div>
+                  )}
+
                   {/* Harmful Content */}
                   {analysis.isHarmful ? (
                     <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-2">

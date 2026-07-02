@@ -19,7 +19,20 @@
       "Bash(Get-ChildItem -Path \"C:/Users/ASUS/selenium-work/NewProject\" -Recurse -File)",
       "Bash(Select-Object FullName)",
       "Bash(mkdir -p \"C:/Users/ASUS/coding projects/scraper-hub/.github/workflows\")",
-      "Bash(mkdir -p \"C:/Users/ASUS/selenium-work/NewProject/.github/workflows\")"
+      "Bash(mkdir -p \"C:/Users/ASUS/selenium-work/NewProject/.github/workflows\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\ASUS\\\\selenium-work\\\\NewProject\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(Format-Table FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\ASUS\\\\coding projects\\\\scraper-hub\\\\src\" -Recurse -Directory | ForEach-Object { $_.FullName } | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\ASUS\\\\coding projects\\\\scraper-hub\\\\src\\\\pages\" -File | Select-Object Name | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\ASUS\\\\coding projects\\\\scraper-hub\\\\src\\\\components\" -File -Recurse | Select-Object Name | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\ASUS\\\\coding projects\\\\scraper-hub\\\\src\\\\hooks\" -File | Select-Object Name | ForEach-Object { $_.Name })",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); console.log\\('react-markdown:', pkg.dependencies['react-markdown']\\)\")",
+      "Bash(Get-ChildItem -Path \"C:/Users/ASUS/selenium-work/NewProject\" -Recurse -Include \"*.java\", \"*.properties\", \"*.yml\", \"*.yaml\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Remove-Item *)",
+      "Bash(xargs grep -l \"scraped_at\")",
+      "Bash(node -e \"require\\('lucide-react'\\)\")"
     ]
   }
 }

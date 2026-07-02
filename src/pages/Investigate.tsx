@@ -69,6 +69,9 @@ export default function Investigate() {
   const [igKws, setIgKws] = useState<string[]>([]);
   const [rdKws, setRdKws] = useState<string[]>([]);
   const [webKws, setWebKws] = useState<string[]>([]);
+  const [kwSelections, setKwSelections] = useState<Record<string, Set<string>>>({
+    Twitter: new Set(), Instagram: new Set(), Reddit: new Set(), Web: new Set(),
+  });
   const [selectedSteps, setSelectedSteps] = useState<Set<number>>(new Set());
   const [selTwProfiles, setSelTwProfiles] = useState<Set<string>>(new Set());
   const [selIgProfiles, setSelIgProfiles] = useState<Set<string>>(new Set());
@@ -120,6 +123,20 @@ export default function Investigate() {
     setSaved(next);
     localStorage.setItem(OSINT_KEY, JSON.stringify(next));
     toast.success("Intelligence profile archived");
+  }
+
+  function toggleKwSel(platform: string, kw: string) {
+    setKwSelections(prev => {
+      const next = new Set(prev[platform]);
+      next.has(kw) ? next.delete(kw) : next.add(kw);
+      return { ...prev, [platform]: next };
+    });
+  }
+
+  function removeKwSelected(platform: string, kwList: string[], setter: (v: string[]) => void) {
+    const sel = kwSelections[platform];
+    setter(kwList.filter(k => !sel.has(k)));
+    setKwSelections(prev => ({ ...prev, [platform]: new Set() }));
   }
 
   function executeInvestigation() {
@@ -304,15 +321,44 @@ export default function Investigate() {
                       { p: "Web", k: webKws, sk: setWebKws }
                     ].map(col => (
                       <div key={col.p} className="p-4 rounded-xl bg-accent/10 border border-border/40">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className={cn("text-[10px] font-black uppercase tracking-wider", PLATFORM_COLORS[col.p])}>{col.p}</span>
+                        {/* Header row: Select All + platform label + count */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <Checkbox
+                              checked={col.k.length > 0 && kwSelections[col.p].size === col.k.length}
+                              onCheckedChange={(checked) =>
+                                setKwSelections(prev => ({
+                                  ...prev,
+                                  [col.p]: checked ? new Set(col.k) : new Set(),
+                                }))
+                              }
+                              className="h-3 w-3"
+                            />
+                            <span className={cn("text-[10px] font-black uppercase tracking-wider", PLATFORM_COLORS[col.p])}>{col.p}</span>
+                          </div>
                           <Badge variant="outline" className="text-[9px]">{col.k.length}</Badge>
                         </div>
+                        {/* Remove Selected button */}
+                        {kwSelections[col.p].size > 0 && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="w-full mb-2 h-6 text-[10px] px-2"
+                            onClick={() => removeKwSelected(col.p, col.k, col.sk)}
+                          >
+                            Remove {kwSelections[col.p].size} selected
+                          </Button>
+                        )}
                         <div className="flex flex-wrap gap-1.5">
                           {col.k.map(kw => (
-                            <Badge key={kw} variant="secondary" className="text-[10px] font-medium bg-background border-border/40 group py-0.5 pr-1">
+                            <Badge key={kw} variant="secondary" className="text-[10px] font-medium bg-background border-border/40 py-0.5 pl-1 pr-1 gap-1 flex items-center">
+                              <Checkbox
+                                checked={kwSelections[col.p].has(kw)}
+                                onCheckedChange={() => toggleKwSel(col.p, kw)}
+                                className="h-3 w-3 shrink-0"
+                              />
                               {kw}
-                              <X className="h-2.5 w-2.5 ml-1 cursor-pointer hover:text-destructive transition-colors" onClick={() => col.sk(col.k.filter(k => k !== kw))} />
+                              <X className="h-2.5 w-2.5 cursor-pointer hover:text-destructive transition-colors" onClick={() => col.sk(col.k.filter(k => k !== kw))} />
                             </Badge>
                           ))}
                         </div>

@@ -19,6 +19,8 @@ import AppSettings from "./pages/AppSettings";
 import AuditLog from "./pages/AuditLog";
 import MapView from "./pages/MapView";
 import Investigate from "./pages/Investigate";
+import DarkWebIntelligence from "./pages/DarkWebIntelligence";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,11 +62,13 @@ const App = () => (
                 <Route path="/alerts" element={<Alerts />} />
                 <Route path="/cases" element={<CaseManagement />} />
                 <Route path="/analytics" element={<AnalyticsReport />} />
+                <Route path="/reports" element={<Reports />} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/settings" element={<AppSettings />} />
                 <Route path="/audit-log" element={<AuditLog />} />
                 <Route path="/map" element={<MapView />} />
                 <Route path="/investigate" element={<Investigate />} />
+                <Route path="/darkweb" element={<DarkWebIntelligence />} />
               </Route>
             </Route>
             <Route path="/login" element={<Login/>} />

@@ -131,28 +131,22 @@ function defaultAnalysis(postId: string): PostAnalysis {
 
 // ── Build Gemini prompt ─────────────────────────────────────────────────────
 function buildPrompt(post: AllPost): string {
-  return `Analyze this social media post for a security monitoring system. Respond ONLY with a valid JSON object, no markdown, no explanation.
+  const p = post as any;
+  const prompt = `Analyze this social media post for harmful content, sentiment, and threat level.
 
+Post content: "${p.content || p.tweet || p.caption || p.text}"
 Platform: ${post.platform}
-User: ${post.user}
-Content: ${post.content}
+Keywords: ${post.keyword}
 
-Return this exact JSON structure:
+Respond in JSON format only:
 {
-  "sentiment": "Positive" | "Negative" | "Neutral" | "Angry",
-  "sentimentScore": 0-100,
-  "isHarmful": true | false,
-  "harmfulReason": "reason string" | null,
-  "harmfulSeverity": "None" | "Low" | "Medium" | "High",
-  "suggestMonitoring": true | false,
-  "monitoringReason": "reason string" | null,
-  "locationName": "City, Country" | null,
-  "country": "Country name" | null,
-  "latitude": number | null,
-  "longitude": number | null
-}
-
-Also extract the primary geographic location this post is about (not where the user is from, but what location the content discusses). If no clear location, return null for all location fields.`;
+  "sentiment": "positive" | "negative" | "neutral",
+  "harmful": true | false,
+  "harmfulReason": "explanation if harmful, empty string if not",
+  "threatLevel": "low" | "medium" | "high",
+  "summary": "one sentence summary of the post"
+}`;
+  return prompt;
 }
 
 interface GeminiResult extends PostAnalysis {
@@ -189,12 +183,14 @@ async function fetchGeminiAnalysis(post: AllPost): Promise<GeminiResult> {
       postId,
       sentiment: parsed.sentiment ?? "Neutral",
       sentimentScore: Number(parsed.sentimentScore) || 50,
-      isHarmful: Boolean(parsed.isHarmful),
+      isHarmful: Boolean(parsed.harmful),
       harmfulReason: parsed.harmfulReason ?? null,
       harmfulSeverity: parsed.harmfulSeverity ?? "None",
       suggestMonitoring: Boolean(parsed.suggestMonitoring),
       monitoringReason: parsed.monitoringReason ?? null,
       analyzedAt: new Date().toISOString(),
+      threatLevel: parsed.threatLevel ?? "low",
+      summary: parsed.summary ?? "",
       locationName: parsed.locationName ?? null,
       country: parsed.country ?? null,
       latitude: parsed.latitude != null ? Number(parsed.latitude) : null,
@@ -518,12 +514,14 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
                 postId,
                 sentiment: parsed.sentiment ?? "Neutral",
                 sentimentScore: Number(parsed.sentimentScore) || 50,
-                isHarmful: Boolean(parsed.isHarmful),
+                isHarmful: Boolean(parsed.harmful),
                 harmfulReason: parsed.harmfulReason ?? null,
                 harmfulSeverity: parsed.harmfulSeverity ?? "None",
                 suggestMonitoring: Boolean(parsed.suggestMonitoring),
                 monitoringReason: parsed.monitoringReason ?? null,
                 analyzedAt: new Date().toISOString(),
+                threatLevel: parsed.threatLevel ?? "low",
+                summary: parsed.summary ?? "",
                 locationName: parsed.locationName ?? null,
                 country: parsed.country ?? null,
                 latitude: parsed.latitude != null ? Number(parsed.latitude) : null,
