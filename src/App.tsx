@@ -13,7 +13,6 @@ import Posts from "./pages/Posts";
 import UserMonitoring from "./pages/UserMonitoring";
 import Alerts from "./pages/Alerts";
 import CaseManagement from "./pages/CaseManagement";
-import AnalyticsReport from "./pages/AnalyticsReport";
 import Team from "./pages/Team";
 import AppSettings from "./pages/AppSettings";
 import AuditLog from "./pages/AuditLog";
@@ -61,7 +60,6 @@ const App = () => (
                 <Route path="/monitoring" element={<UserMonitoring />} />
                 <Route path="/alerts" element={<Alerts />} />
                 <Route path="/cases" element={<CaseManagement />} />
-                <Route path="/analytics" element={<AnalyticsReport />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/settings" element={<AppSettings />} />

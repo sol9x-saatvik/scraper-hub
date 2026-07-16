@@ -2,8 +2,11 @@ import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { AppNavbar } from "./AppNavbar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { useAutoAnalyzePosts } from "@/hooks/useAutoAnalyzePosts";
 
 export function AppLayout() {
+  useAutoAnalyzePosts();
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">

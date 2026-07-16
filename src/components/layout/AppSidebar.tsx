@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -18,6 +19,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScraperContext } from "@/context/ScraperContext";
+import { checkOllamaHealth, type OllamaHealth } from "@/services/ollama";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Sidebar,
   SidebarContent,
@@ -43,7 +46,6 @@ const secondaryItems: { label: string; to: string; icon: LucideIcon; iconClassNa
   { label: "Alerts", to: "/alerts", icon: Bell },
   { label: "Reports", to: "/reports", icon: FileText },
   { label: "Case Management", to: "/cases", icon: Briefcase },
-  { label: "Analytics & Report", to: "/analytics", icon: BarChart2 },
   { label: "Geo Intelligence", to: "/map", icon: Globe },
   { label: "Dark Web Intel", to: "/darkweb", icon: EyeOff, iconClassName: "text-purple-400" },
 ];
@@ -146,6 +148,7 @@ export function AppSidebar() {
             Systems {state.isRunning ? "Active" : "Idle"}
           </span>
         </div>
+        <OllamaStatus />
         <div className="group-data-[collapsible=icon]:hidden mt-2">
           <UserAccountBanner />
         </div>
@@ -153,6 +156,43 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+    function OllamaStatus() {
+      const [health, setHealth] = useState<OllamaHealth | null>(null);
+
+      useEffect(() => {
+        let cancelled = false;
+        const poll = async () => {
+          const h = await checkOllamaHealth();
+          if (!cancelled) setHealth(h);
+        };
+        poll();
+        const id = setInterval(poll, 30_000);
+        return () => { cancelled = true; clearInterval(id); };
+      }, []);
+
+      const state = !health
+        ? { label: "Ollama…", dot: "bg-muted", tip: "Checking…" }
+        : health.available
+        ? { label: "Ollama Ready", dot: "bg-green-500", tip: `Connected — ${health.model}` }
+        : health.error?.includes("not installed")
+        ? { label: "Ollama Model Missing", dot: "bg-yellow-500", tip: health.error }
+        : { label: "Ollama Offline", dot: "bg-destructive", tip: health.error ?? "Unavailable" };
+
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-3 mt-2 group-data-[collapsible=icon]:justify-center cursor-help">
+              <div className={cn("h-1.5 w-1.5 rounded-full shrink-0", state.dot)} />
+              <span className="text-[10px] font-black uppercase tracking-widest group-data-[collapsible=icon]:hidden">
+                {state.label}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right">{state.tip}</TooltipContent>
+        </Tooltip>
+      );
+    }
 
     function UserAccountBanner() {
       const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;

@@ -439,8 +439,8 @@ export default function Posts() {
     };
     const analysis = getPostAnalysis(fakePost);
     if (!analysis) return <div className="h-2 w-2 rounded-full bg-muted shadow-inner" title="Not analyzed" />;
-    if (analysis.isHarmful) return <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" title="Harmful Detected" />;
-    return <div className="h-2 w-2 rounded-full bg-success shadow-[0_0_8px_rgba(var(--success),0.4)]" title="Clean" />;
+    if (analysis.harmful) return <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" title="Harmful Detected" />;
+    return <div className="h-2 w-2 rounded-full bg-success shadow-[0_0_8px_rgba(var(--success),0.4)]" title="AI Analyzed — Clean" />;
   };
 
   return (

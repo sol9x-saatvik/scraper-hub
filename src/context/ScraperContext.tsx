@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import { getAllPosts, getPostId, saveGeoPost, startScraper as apiStartScraper, type AllPost, type PostAnalysis, type PostGeo } from "@/services/api";
+import { getAllPosts, getPostId, startScraper as apiStartScraper, type AllPost, type PostAnalysis } from "@/services/api";
+import { analyzePostWithOllama } from "@/services/ollama";
 
 export type Platform = "INSTAGRAM" | "TWITTER" | "FACEBOOK" | "REDDIT";
 
@@ -75,15 +76,12 @@ interface ScraperContextType {
   analyzePost: (post: AllPost) => Promise<PostAnalysis>;
   analyzeAllPosts: (posts: AllPost[]) => Promise<void>;
   getPostAnalysis: (post: AllPost) => PostAnalysis | null;
+  setPostAnalysis: (postId: string, analysis: PostAnalysis) => void;
 }
 
 const ScraperContext = createContext<ScraperContextType | null>(null);
 
 const API_BASE = "http://localhost:8081/api";
-
-// ── Gemini constants ────────────────────────────────────────────────────────
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // ── localStorage helpers ────────────────────────────────────────────────────
 const STORAGE_KEY = "scraper_post_analyses";
@@ -118,107 +116,56 @@ function saveAnalysesToStorage(map: Map<string, PostAnalysis>): void {
 function defaultAnalysis(postId: string): PostAnalysis {
   return {
     postId,
-    sentiment: "Neutral",
-    sentimentScore: 50,
-    isHarmful: false,
-    harmfulReason: null,
-    harmfulSeverity: "None",
-    suggestMonitoring: false,
-    monitoringReason: null,
     analyzedAt: new Date().toISOString(),
+    sentiment: "neutral",
+    sentiment_score: 50,
+    harmful: false,
+    harmful_reason: null,
+    threat_level: "low",
+    summary: "",
+    emotions: [],
+    toxicity_score: 0,
+    fake_account_probability: 0,
+    geographic_signals: [],
   };
 }
 
-// ── Build Gemini prompt ─────────────────────────────────────────────────────
-function buildPrompt(post: AllPost): string {
+/**
+ * Ollama fetch with exponential backoff on network errors.
+ * Retries 3 times at 2s / 4s / 8s. Returns a default analysis if all attempts fail.
+ */
+async function fetchOllamaAnalysisWithBackoff(post: AllPost): Promise<PostAnalysis> {
   const p = post as any;
-  const prompt = `Analyze this social media post for harmful content, sentiment, and threat level.
-
-Post content: "${p.content || p.tweet || p.caption || p.text}"
-Platform: ${post.platform}
-Keywords: ${post.keyword}
-
-Respond in JSON format only:
-{
-  "sentiment": "positive" | "negative" | "neutral",
-  "harmful": true | false,
-  "harmfulReason": "explanation if harmful, empty string if not",
-  "threatLevel": "low" | "medium" | "high",
-  "summary": "one sentence summary of the post"
-}`;
-  return prompt;
-}
-
-interface GeminiResult extends PostAnalysis {
-  locationName: string | null;
-  country: string | null;
-  latitude: number | null;
-  longitude: number | null;
-}
-
-// ── Raw Gemini fetch (no UI side effects) ────────────────────────────────────
-async function fetchGeminiAnalysis(post: AllPost): Promise<GeminiResult> {
   const postId = getPostId(post);
-  const noLocation = { locationName: null, country: null, latitude: null, longitude: null };
-  try {
-    const res = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: buildPrompt(post) }] }] }),
-    });
+  const backoffMs = [2000, 4000, 8000];
 
-    if (res.status === 429) {
-      await new Promise((r) => setTimeout(r, 60_000));
-      return fetchGeminiAnalysis(post);
+  for (let attempt = 0; attempt <= backoffMs.length; attempt++) {
+    try {
+      const result = await analyzePostWithOllama({
+        content: p.content || p.tweet || p.caption || p.text || "",
+        author: p.user || p.handle || p.username,
+        platform: post.platform,
+        engagement: {
+          likes: Number(p.likes) || 0,
+          comments: Number(p.replies ?? p.comments) || 0,
+          shares: Number(p.reposts ?? p.shares) || 0,
+          views: Number(p.views) || 0,
+        },
+      });
+      return {
+        postId,
+        analyzedAt: new Date().toISOString(),
+        ...result,
+      };
+    } catch (err) {
+      if (attempt >= backoffMs.length) {
+        console.warn("[Ollama] analysis failed after retries:", err);
+        return defaultAnalysis(postId);
+      }
+      await new Promise((r) => setTimeout(r, backoffMs[attempt]));
     }
-
-    if (!res.ok) return { ...defaultAnalysis(postId), ...noLocation };
-
-    const data = await res.json();
-    const raw: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    const cleaned = raw.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-
-    return {
-      postId,
-      sentiment: parsed.sentiment ?? "Neutral",
-      sentimentScore: Number(parsed.sentimentScore) || 50,
-      isHarmful: Boolean(parsed.harmful),
-      harmfulReason: parsed.harmfulReason ?? null,
-      harmfulSeverity: parsed.harmfulSeverity ?? "None",
-      suggestMonitoring: Boolean(parsed.suggestMonitoring),
-      monitoringReason: parsed.monitoringReason ?? null,
-      analyzedAt: new Date().toISOString(),
-      threatLevel: parsed.threatLevel ?? "low",
-      summary: parsed.summary ?? "",
-      locationName: parsed.locationName ?? null,
-      country: parsed.country ?? null,
-      latitude: parsed.latitude != null ? Number(parsed.latitude) : null,
-      longitude: parsed.longitude != null ? Number(parsed.longitude) : null,
-    };
-  } catch {
-    return { ...defaultAnalysis(postId), ...noLocation };
   }
-}
-
-function buildGeoPost(post: AllPost, result: GeminiResult): PostGeo {
-  return {
-    platform: post.platform,
-    user: post.user,
-    content: post.content.substring(0, 200),
-    keyword: post.keyword ?? "",
-    source: post.source,
-    locationName: result.locationName!,
-    country: result.country!,
-    latitude: result.latitude!,
-    longitude: result.longitude!,
-    sentiment: result.sentiment,
-    isHarmful: result.isHarmful,
-    harmfulSeverity: result.harmfulSeverity,
-    likes: post.likes,
-    date: post.date,
-    time: post.time,
-  };
+  return defaultAnalysis(postId);
 }
 
 export function ScraperProvider({ children }: { children: ReactNode }) {
@@ -444,17 +391,17 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
     const cached = postAnalysesRef.current.get(postId);
     if (cached) return cached;
 
-    const result = await fetchGeminiAnalysis(post);
-    const { locationName, country, latitude, longitude, ...analysis } = result;
+    const analysis = await fetchOllamaAnalysisWithBackoff(post);
     postAnalysesRef.current.set(postId, analysis);
     saveAnalysesToStorage(postAnalysesRef.current);
     setState((prev) => ({ ...prev, postAnalyses: new Map(postAnalysesRef.current) }));
-
-    if (locationName && country && latitude != null && longitude != null) {
-      saveGeoPost(buildGeoPost(post, result)).catch(() => {});
-    }
-
     return analysis;
+  }, []);
+
+  const setPostAnalysis = useCallback((postId: string, analysis: PostAnalysis) => {
+    postAnalysesRef.current.set(postId, analysis);
+    saveAnalysesToStorage(postAnalysesRef.current);
+    setState((prev) => ({ ...prev, postAnalyses: new Map(postAnalysesRef.current) }));
   }, []);
 
   const analyzeAllPosts = useCallback(async (posts: AllPost[]): Promise<void> => {
@@ -479,72 +426,9 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
         analysisProgress: { current: i, total: unanalyzed.length, rateLimited: false },
       }));
 
-      // Fetch with 429 rate-limit handling that updates UI
-      const doAnalyze = async (): Promise<void> => {
-        try {
-          const res = await fetch(GEMINI_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: buildPrompt(post) }] }] }),
-          });
-
-          if (res.status === 429) {
-            setState((prev) => ({
-              ...prev,
-              analysisProgress: { ...prev.analysisProgress, rateLimited: true },
-            }));
-            await new Promise((r) => setTimeout(r, 60_000));
-            setState((prev) => ({
-              ...prev,
-              analysisProgress: { ...prev.analysisProgress, rateLimited: false },
-            }));
-            return doAnalyze();
-          }
-
-          let result: GeminiResult;
-          if (!res.ok) {
-            result = { ...defaultAnalysis(postId), locationName: null, country: null, latitude: null, longitude: null };
-          } else {
-            try {
-              const data = await res.json();
-              const raw: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-              const cleaned = raw.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-              const parsed = JSON.parse(cleaned);
-              result = {
-                postId,
-                sentiment: parsed.sentiment ?? "Neutral",
-                sentimentScore: Number(parsed.sentimentScore) || 50,
-                isHarmful: Boolean(parsed.harmful),
-                harmfulReason: parsed.harmfulReason ?? null,
-                harmfulSeverity: parsed.harmfulSeverity ?? "None",
-                suggestMonitoring: Boolean(parsed.suggestMonitoring),
-                monitoringReason: parsed.monitoringReason ?? null,
-                analyzedAt: new Date().toISOString(),
-                threatLevel: parsed.threatLevel ?? "low",
-                summary: parsed.summary ?? "",
-                locationName: parsed.locationName ?? null,
-                country: parsed.country ?? null,
-                latitude: parsed.latitude != null ? Number(parsed.latitude) : null,
-                longitude: parsed.longitude != null ? Number(parsed.longitude) : null,
-              };
-            } catch {
-              result = { ...defaultAnalysis(postId), locationName: null, country: null, latitude: null, longitude: null };
-            }
-          }
-
-          const { locationName, country, latitude, longitude, ...analysis } = result;
-          postAnalysesRef.current.set(postId, analysis);
-          saveAnalysesToStorage(postAnalysesRef.current);
-
-          if (locationName && country && latitude != null && longitude != null) {
-            saveGeoPost(buildGeoPost(post, result)).catch(() => {});
-          }
-        } catch {
-          postAnalysesRef.current.set(postId, defaultAnalysis(postId));
-        }
-      };
-
-      await doAnalyze();
+      const analysis = await fetchOllamaAnalysisWithBackoff(post);
+      postAnalysesRef.current.set(postId, analysis);
+      saveAnalysesToStorage(postAnalysesRef.current);
 
       setState((prev) => ({
         ...prev,
@@ -693,6 +577,7 @@ export function ScraperProvider({ children }: { children: ReactNode }) {
         analyzePost,
         analyzeAllPosts,
         getPostAnalysis,
+        setPostAnalysis,
       }}
     >
       {children}

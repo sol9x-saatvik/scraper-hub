@@ -32,7 +32,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Remove-Item *)",
       "Bash(xargs grep -l \"scraped_at\")",
-      "Bash(node -e \"require\\('lucide-react'\\)\")"
+      "Bash(node -e \"require\\('lucide-react'\\)\")",
+      "Bash(mvn -q compile)"
     ]
   }
 }

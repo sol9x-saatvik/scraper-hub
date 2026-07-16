@@ -33,18 +33,28 @@ interface PostModalProps {
 }
 
 const SENTIMENT_STYLES: Record<string, string> = {
-  Positive: "bg-green-500/15 text-green-600",
-  Negative: "bg-destructive/15 text-destructive",
-  Neutral: "bg-secondary text-secondary-foreground",
-  Angry: "bg-orange-500/15 text-orange-600",
+  positive: "bg-green-500/15 text-green-600",
+  negative: "bg-destructive/15 text-destructive",
+  neutral: "bg-secondary text-secondary-foreground",
+  mixed: "bg-orange-500/15 text-orange-600",
 };
 
-const SEVERITY_STYLES: Record<string, string> = {
-  Low: "bg-yellow-500/15 text-yellow-700",
-  Medium: "bg-orange-500/15 text-orange-600",
-  High: "bg-destructive/15 text-destructive",
-  None: "bg-secondary text-secondary-foreground",
+const THREAT_STYLES: Record<string, string> = {
+  low: "bg-green-500/15 text-green-700",
+  medium: "bg-yellow-500/15 text-yellow-700",
+  high: "bg-orange-500/15 text-orange-600",
+  critical: "bg-destructive/15 text-destructive",
 };
+
+function fakeAccountBadgeClass(prob: number): string {
+  if (prob >= 70) return "bg-destructive/15 text-destructive";
+  if (prob >= 40) return "bg-yellow-500/15 text-yellow-700";
+  return "bg-green-500/15 text-green-600";
+}
+
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
 
 export default function PostModal({ post, open, onOpenChange }: PostModalProps) {
   const [alreadyMonitored, setAlreadyMonitored] = useState(false);
@@ -344,32 +354,28 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                   <div className="rounded-lg border border-border bg-background p-3 space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sentiment</p>
                     <div className="flex items-center gap-3">
-                      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", SENTIMENT_STYLES[analysis.sentiment] ?? SENTIMENT_STYLES.Neutral)}>
-                        {analysis.sentiment}
+                      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", SENTIMENT_STYLES[analysis.sentiment] ?? SENTIMENT_STYLES.neutral)}>
+                        {capitalize(analysis.sentiment)}
                       </span>
                       <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                         <div
                           className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${analysis.sentimentScore}%` }}
+                          style={{ width: `${analysis.sentiment_score}%` }}
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground w-7 text-right">{analysis.sentimentScore}</span>
+                      <span className="text-xs text-muted-foreground w-7 text-right">{analysis.sentiment_score}</span>
                     </div>
                   </div>
 
                   {/* Threat Level */}
-                  {analysis.threatLevel && (
-                    <div className="rounded-lg border border-border bg-background p-3 space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Threat Level</p>
-                      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
-                        analysis.threatLevel === "high" ? "bg-red-100 text-red-700" :
-                        analysis.threatLevel === "medium" ? "bg-yellow-100 text-yellow-700" :
-                        "bg-green-100 text-green-700"
-                      )}>
-                        {analysis.threatLevel.toUpperCase()}
-                      </span>
-                    </div>
-                  )}
+                  <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Threat Level</p>
+                    <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
+                      THREAT_STYLES[analysis.threat_level] ?? THREAT_STYLES.low
+                    )}>
+                      {analysis.threat_level.toUpperCase()}
+                    </span>
+                  </div>
 
                   {/* AI Summary */}
                   {analysis.summary && (
@@ -379,47 +385,81 @@ export default function PostModal({ post, open, onOpenChange }: PostModalProps) 
                     </div>
                   )}
 
+                  {/* Toxicity + Fake Account row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Toxicity</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              analysis.toxicity_score >= 70 ? "bg-destructive" :
+                              analysis.toxicity_score >= 40 ? "bg-yellow-500" : "bg-green-500"
+                            )}
+                            style={{ width: `${analysis.toxicity_score}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-mono text-foreground w-8 text-right">{analysis.toxicity_score}</span>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fake Account</p>
+                      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", fakeAccountBadgeClass(analysis.fake_account_probability))}>
+                        {analysis.fake_account_probability}% likely
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Emotions */}
+                  {analysis.emotions.length > 0 && (
+                    <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Emotions</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {analysis.emotions.map((e, i) => (
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{e}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Geographic Signals */}
+                  {analysis.geographic_signals.length > 0 && (
+                    <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Geographic Signals</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {analysis.geographic_signals.map((g, i) => (
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{g}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Harmful Content */}
-                  {analysis.isHarmful ? (
+                  {analysis.harmful ? (
                     <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                         <span className="text-sm font-medium text-destructive">Harmful Content Detected</span>
-                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", SEVERITY_STYLES[analysis.harmfulSeverity] ?? SEVERITY_STYLES.None)}>
-                          {analysis.harmfulSeverity}
-                        </span>
                       </div>
-                      {analysis.harmfulReason && (
-                        <p className="text-xs text-muted-foreground">{analysis.harmfulReason}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                      <span className="text-sm text-green-600">No harmful content detected</span>
-                    </div>
-                  )}
-
-                  {/* Monitoring Suggestion */}
-                  {analysis.suggestMonitoring && (
-                    <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <ShieldAlert className="h-4 w-4 text-yellow-600 shrink-0" />
-                        <span className="text-sm font-medium text-yellow-700 dark:text-yellow-500">Monitoring Suggested</span>
-                      </div>
-                      {analysis.monitoringReason && (
-                        <p className="text-xs text-muted-foreground">{analysis.monitoringReason}</p>
+                      {analysis.harmful_reason && (
+                        <p className="text-xs text-muted-foreground">{analysis.harmful_reason}</p>
                       )}
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={alreadyMonitored}
                         onClick={handleAddToMonitoring}
-                        className={cn("border-yellow-500/40", alreadyMonitored && "opacity-60 cursor-not-allowed")}
+                        className={cn("border-destructive/40", alreadyMonitored && "opacity-60 cursor-not-allowed")}
                       >
                         <ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
                         {alreadyMonitored ? "Already Monitored" : "Add to Monitoring"}
                       </Button>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                      <span className="text-sm text-green-600">No harmful content detected</span>
                     </div>
                   )}
 

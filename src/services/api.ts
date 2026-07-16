@@ -235,18 +235,24 @@ export interface DashboardStats {
 
 // ── Monitoring types ──
 
+/**
+ * Per-post analysis. Now produced by Ollama (see src/services/ollama.ts).
+ * Snake_case fields mirror the Ollama JSON schema; camelCase fields
+ * (postId, analyzedAt) are added by the client after parsing.
+ */
 export interface PostAnalysis {
   postId: string;
-  sentiment: "Positive" | "Negative" | "Neutral" | "Angry";
-  sentimentScore: number; // 0–100
-  isHarmful: boolean;
-  harmfulReason: string | null;
-  harmfulSeverity: "None" | "Low" | "Medium" | "High";
-  suggestMonitoring: boolean;
-  monitoringReason: string | null;
-  analyzedAt: string; // ISO timestamp
-  threatLevel?: "low" | "medium" | "high";
-  summary?: string;
+  analyzedAt: string;
+  sentiment: "positive" | "negative" | "neutral" | "mixed";
+  sentiment_score: number;
+  harmful: boolean;
+  harmful_reason: string | null;
+  threat_level: "low" | "medium" | "high" | "critical";
+  summary: string;
+  emotions: string[];
+  toxicity_score: number;
+  fake_account_probability: number;
+  geographic_signals: string[];
 }
 
 export function getPostId(post: AllPost): string {
