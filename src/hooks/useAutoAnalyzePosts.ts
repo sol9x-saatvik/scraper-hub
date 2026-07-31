@@ -77,9 +77,16 @@ export function useAutoAnalyzePosts() {
 
           try {
             const p = post as any;
+            const content = [p.content, p.tweet, p.caption, p.text, p.title, p.snippet, p.scrapedContent]
+              .find((c: any) => typeof c === "string" && c.trim())
+              ?.trim() ?? "";
+            if (!content) {
+              console.warn(`[auto-analyze] skipping ${postId} — no analyzable content`);
+              continue;
+            }
             const result = await analyzePostWithOllama({
-              content: p.content || p.tweet || p.caption || "",
-              author: p.user || p.handle || p.username,
+              content,
+              author: p.user || p.handle || p.username || p.author,
               platform: post.platform,
               engagement: {
                 likes: Number(p.likes) || 0,

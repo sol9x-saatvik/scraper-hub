@@ -100,7 +100,11 @@ function loadAnalysesFromStorage(): Map<string, PostAnalysis> {
     const stored = localStorage.getItem(accountStorageKey(STORAGE_KEY));
     if (!stored) return new Map();
     const entries: [string, PostAnalysis][] = JSON.parse(stored);
-    return new Map(entries);
+    // Drop orphan entries from the old getPostId format that stored "undefined"
+    // as the author segment (e.g. "Twitter_undefined_20-06-2026_00:20:41").
+    // These can never be matched now that getPostId normalizes across aliases.
+    const cleaned = entries.filter(([key]) => !/_undefined_/i.test(key));
+    return new Map(cleaned);
   } catch {
     return new Map();
   }
@@ -110,6 +114,15 @@ function saveAnalysesToStorage(map: Map<string, PostAnalysis>): void {
   try {
     localStorage.setItem(accountStorageKey(STORAGE_KEY), JSON.stringify(Array.from(map.entries())));
   } catch {}
+}
+
+/** Resolve the analyzable body of a post across every scraper's field names. */
+function resolvePostContent(p: any): string {
+  const candidates = [p.content, p.tweet, p.caption, p.text, p.title, p.snippet, p.scrapedContent];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+  }
+  return "";
 }
 
 // ── Default safe analysis ───────────────────────────────────────────────────
@@ -139,11 +152,17 @@ async function fetchOllamaAnalysisWithBackoff(post: AllPost): Promise<PostAnalys
   const postId = getPostId(post);
   const backoffMs = [2000, 4000, 8000];
 
+  const content = resolvePostContent(p);
+  if (!content) {
+    console.warn("[Ollama] skipping post with no analyzable content:", postId);
+    return defaultAnalysis(postId);
+  }
+
   for (let attempt = 0; attempt <= backoffMs.length; attempt++) {
     try {
       const result = await analyzePostWithOllama({
-        content: p.content || p.tweet || p.caption || p.text || "",
-        author: p.user || p.handle || p.username,
+        content,
+        author: p.user || p.handle || p.username || p.author,
         platform: post.platform,
         engagement: {
           likes: Number(p.likes) || 0,

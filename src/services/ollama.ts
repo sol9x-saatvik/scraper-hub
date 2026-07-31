@@ -57,8 +57,21 @@ interface PostInput {
   engagement?: { likes?: number; comments?: number; shares?: number; views?: number };
 }
 
+const FOCUS_HINTS = [
+  "the emotional tone and word choice",
+  "any explicit threats, calls to action, or coordination signals",
+  "the author's likely intent and target audience",
+  "linguistic markers (repetition, hashtag stuffing, template phrasing) that suggest a bot or coordinated account",
+  "sarcasm, irony, or subtext that shifts the surface meaning",
+  "specific named entities, places, or events referenced",
+];
+
 function buildAnalysisPrompt(post: PostInput): string {
-  return `You are an OSINT analyst. Analyze this social media post and return ONLY valid JSON.
+  const focus = FOCUS_HINTS[Math.floor(Math.random() * FOCUS_HINTS.length)];
+  return `You are an OSINT analyst. Analyze the SPECIFIC post below and return ONLY valid JSON.
+Every field must reflect what THIS post actually says — do not produce a generic template.
+
+Focus this analysis on: ${focus}.
 
 POST:
 Platform: ${post.platform || "unknown"}
@@ -73,7 +86,7 @@ Return JSON with EXACTLY these fields:
   "harmful": <true if content is threatening, extremist, promotes violence, illegal activity, or dangerous>,
   "harmful_reason": <string explaining why, or null>,
   "threat_level": "low" | "medium" | "high" | "critical",
-  "summary": <1-2 sentence plain english summary>,
+  "summary": <1-2 sentence plain english summary that QUOTES OR PARAPHRASES the actual content of THIS post>,
   "emotions": <array of up to 3 dominant emotions from: anger, fear, joy, sadness, disgust, surprise, hope, hate>,
   "toxicity_score": <0-100, higher = more toxic>,
   "fake_account_probability": <0-100 — likelihood this is from a bot/fake account based on content style, repetition, and phrasing>,
@@ -81,6 +94,17 @@ Return JSON with EXACTLY these fields:
 }
 
 Return ONLY the JSON. No markdown, no explanation.`;
+}
+
+/** Stable positive int derived from the post content — used as an Ollama seed
+ *  so different posts land in different sampling regions of the model. */
+function contentSeed(content: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < content.length; i++) {
+    h ^= content.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h % 2147483647;
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -128,17 +152,23 @@ function extractJson(raw: string): any {
 }
 
 export async function analyzePostWithOllama(post: PostInput): Promise<OllamaPostAnalysis> {
+  if (!post.content || !post.content.trim()) {
+    throw new Error("Ollama: refusing to analyze empty post content");
+  }
+
   const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    cache: "no-store",
     body: JSON.stringify({
       model: OLLAMA_MODEL,
       prompt: buildAnalysisPrompt(post),
       format: "json",
       stream: false,
       options: {
-        temperature: 0.2,
+        temperature: 0.5,
         top_p: 0.9,
+        seed: contentSeed(post.content),
       },
     }),
   });

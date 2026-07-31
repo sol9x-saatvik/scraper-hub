@@ -255,8 +255,18 @@ export interface PostAnalysis {
   geographic_signals: string[];
 }
 
-export function getPostId(post: AllPost): string {
-  return `${post.platform}_${post.user}_${post.date}_${post.time}`;
+/**
+ * Build a stable ID for a post that survives it being served from different
+ * endpoints (which name the author field differently: `user`, `username`,
+ * `handle`, `author`) and different platform casings (`TWITTER` vs `Twitter`).
+ * Callers pass raw docs of varying shapes, so the parameter type is loose.
+ */
+export function getPostId(post: any): string {
+  const platform = String(post?.platform ?? "").toUpperCase();
+  const author = post?.user ?? post?.username ?? post?.handle ?? post?.author ?? "";
+  const date = post?.date ?? "";
+  const time = post?.time ?? "";
+  return `${platform}_${author}_${date}_${time}`;
 }
 
 export interface MonitoredUser {
